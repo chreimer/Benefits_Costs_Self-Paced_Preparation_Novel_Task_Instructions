@@ -1,2 +1,6 @@
-# Benefits_Costs_Self-Paced_Preparation_Novel_Task_Instructions
-link to publication: https://doi.org/10.1098/rsos.210762 
+# Benefits and costs of self-paced preparation of novel task instructions
+* link to publication: https://doi.org/10.1098/rsos.210762
+* link to Open Science Framework: https://osf.io/vzxfy/
+
+### Abstract
+Rapidly executing novel instructions is a critical ability. However, it remains unclear whether longer preparation of novel instructions improves performance, and if so, whether this link is modulated by performance benefits and costs of preparation. Regarding the first question, we reanalysed previous data on novel instruction implementation and ran Experiment 1. Experiment 1 consisted of multiple mini-blocks, in which participants prepared four novel stimulus–response (S-R) mappings in a self-paced instruction phase. After participants indicated they were ready, one of the four stimuli was presented and they responded. The reanalysis and Experiment 1 showed that longer preparation indeed led to better performance. To examine if preparation was modulated when the benefits of preparation were reduced, we presented the correct response with the stimulus on some trials in Experiments 2 and 3. Preparation was shorter when the probability that the correct response was presented with the stimulus increased. In Experiment 4, we manipulated the costs of preparation by changing the S-R mappings between the instruction and execution phases on some trials. This had only limited effects on preparation time. In conclusion, self-paced preparation of novel instructions comes with performance benefits and costs, and participants adjust their preparation strategy to the task context.
