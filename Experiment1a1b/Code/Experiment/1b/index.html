@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>My experiment</title>
+        <script src="js/jspsych-6.0.5/jspsych.js"></script>
+        <script src="js/jspsych-6.0.5/plugins/jspsych-html-keyboard-response.js"></script>
+        <script src="js/jspsych-6.0.5/plugins/jspsych-image-keyboard-response.js"></script>
+        <script src="js/jspsych-6.0.5/plugins/jspsych-survey-text-beta-6.1.js"></script>
+        <script src="js/jspsych-6.0.5/plugins/jspsych-fullscreen.js"></script>
+        <script src="js/jspsych-6.0.5/plugins/jspsych-instructions.js"></script>
+        <script src="js/jspsych-6.0.5/plugins/jspsych-survey-likert.js"></script>
+        <script src="js/jspsych-6.0.5/plugins/jspsych-survey-multi-choice.js"></script>
+        <script src="js/bowser.js"></script> <!-- a browser and operating system detector -->
+        <script src="js/images.js"></script>
+        <script src="js/UPPSP.js"></script>
+        <script src="js/jquery-1.7.1.min.js"></script> <!-- the jquery library is used to communicate with the server (to store the data) through "AJAX" and PHP -->
+        <link href="js/jspsych-6.0.5/css/jspsych.css" rel="stylesheet" type="text/css"></link>
+    </head>
+    <body></body>
+    <script>
+
+    // detect visitor variables with the bowser js library (/js/bowser.js)
+    jsPsych.data.addProperties({ // add these variables to all rows of the datafile
+      browser_name: bowser.name, browser_version: bowser.version,
+      os_name: bowser.osname, os_version: bowser.osversion,
+      tablet: String(bowser.tablet), mobile: String(bowser.mobile),
+    // convert explicitly to string so that "undefined" (no response) does not lead to empty cells in the datafile
+      screen_resolution: screen.width + ' x ' + screen.height,
+      window_resolution: window.innerWidth + ' x ' + window.innerHeight, // this will be updated throughout the experiment
+    });
+
+    /* images that need to be loaded */
+    images = ['images/PICTURE_477.png', 'images/PICTURE_703.png', 'images/PICTURE_326.png', 'images/PICTURE_120.png', 'images/PICTURE_164.png', 'images/PICTURE_298.png', 'images/PICTURE_23.png', 'images/PICTURE_286.png', 'images/PICTURE_581.png', 'images/PICTURE_449.png', 'images/PICTURE_596.png', 'images/PICTURE_516.png', 'images/PICTURE_491.png', 'images/PICTURE_356.png', 'images/PICTURE_252.png', 'images/PICTURE_57.png', 'images/PICTURE_96.png', 'images/PICTURE_134.png', 'images/PICTURE_226.png', 'images/PICTURE_212.png', 'images/PICTURE_183.png', 'images/PICTURE_108.png', 'images/PICTURE_649.png', 'images/PICTURE_670.png', 'images/PICTURE_14.png', 'images/PICTURE_485.png', 'images/PICTURE_720.png', 'images/PICTURE_110.png', 'images/PICTURE_10.png', 'images/PICTURE_390.png', 'images/PICTURE_646.png', 'images/PICTURE_612.png', 'images/PICTURE_415.png', 'images/PICTURE_605.png', 'images/PICTURE_225.png', 'images/PICTURE_607.png', 'images/PICTURE_639.png', 'images/PICTURE_744.png', 'images/PICTURE_558.png', 'images/PICTURE_178.png', 'images/PICTURE_552.png', 'images/PICTURE_661.png', 'images/PICTURE_549.png', 'images/PICTURE_322.png', 'images/PICTURE_441.png', 'images/PICTURE_334.png', 'images/PICTURE_693.png', 'images/PICTURE_149.png', 'images/PICTURE_268.png', 'images/PICTURE_136.png', 'images/PICTURE_172.png', 'images/PICTURE_204.png', 'images/PICTURE_302.png', 'images/PICTURE_93.png', 'images/PICTURE_626.png', 'images/PICTURE_668.png', 'images/PICTURE_256.png', 'images/PICTURE_400.png', 'images/PICTURE_521.png', 'images/PICTURE_216.png', 'images/PICTURE_148.png', 'images/PICTURE_556.png', 'images/PICTURE_474.png', 'images/PICTURE_161.png', 'images/PICTURE_345.png', 'images/PICTURE_531.png', 'images/PICTURE_292.png', 'images/PICTURE_133.png', 'images/PICTURE_190.png', 'images/PICTURE_296.png', 'images/PICTURE_209.png', 'images/PICTURE_734.png', 'images/PICTURE_234.png', 'images/PICTURE_679.png', 'images/PICTURE_636.png', 'images/PICTURE_715.png', 'images/PICTURE_487.png', 'images/PICTURE_77.png', 'images/PICTURE_310.png', 'images/PICTURE_126.png', 'images/PICTURE_618.png', 'images/PICTURE_614.png', 'images/PICTURE_38.png', 'images/PICTURE_219.png', 'images/PICTURE_570.png', 'images/PICTURE_104.png', 'images/PICTURE_566.png', 'images/PICTURE_311.png', 'images/PICTURE_375.png', 'images/PICTURE_591.png', 'images/PICTURE_269.png', 'images/PICTURE_193.png', 'images/PICTURE_722.png', 'images/PICTURE_318.png', 'images/PICTURE_482.png', 'images/PICTURE_402.png', 'images/PICTURE_223.png', 'images/PICTURE_72.png', 'images/PICTURE_137.png', 'images/PICTURE_168.png', 'images/PICTURE_259.png', 'images/PICTURE_74.png', 'images/PICTURE_203.png', 'images/PICTURE_559.png', 'images/PICTURE_15.png', 'images/PICTURE_185.png', 'images/PICTURE_319.png', 'images/PICTURE_414.png', 'images/PICTURE_727.png', 'images/PICTURE_550.png', 'images/PICTURE_97.png', 'images/PICTURE_547.png', 'images/PICTURE_721.png', 'images/PICTURE_228.png', 'images/PICTURE_439.png', 'images/PICTURE_629.png', 'images/PICTURE_456.png', 'images/PICTURE_327.png', 'images/PICTURE_71.png', 'images/PICTURE_397.png', 'images/PICTURE_206.png', 'images/PICTURE_718.png', 'images/PICTURE_380.png', 'images/PICTURE_711.png', 'images/PICTURE_692.png', 'images/PICTURE_237.png', 'images/PICTURE_655.png', 'images/PICTURE_158.png', 'images/PICTURE_392.png', 'images/PICTURE_568.png', 'images/PICTURE_659.png', 'images/PICTURE_652.png', 'images/PICTURE_527.png', 'images/PICTURE_332.png', 'images/PICTURE_565.png', 'images/PICTURE_249.png', 'images/PICTURE_684.png', 'images/PICTURE_83.png', 'images/PICTURE_699.png', 'images/PICTURE_201.png', 'images/PICTURE_52.png', 'images/PICTURE_630.png', 'images/PICTURE_489.png', 'images/PICTURE_336.png', 'images/PICTURE_468.png', 'images/PICTURE_142.png', 'images/PICTURE_391.png', 'images/PICTURE_290.png', 'images/PICTURE_509.png', 'images/PICTURE_448.png', 'images/PICTURE_235.png', 'images/PICTURE_367.png', 'images/PICTURE_682.png', 'images/PICTURE_586.png', 'images/PICTURE_724.png', 'images/PICTURE_145.png', 'images/PICTURE_266.png', 'images/PICTURE_422.png', 'images/PICTURE_368.png', 'images/PICTURE_437.png', 'images/PICTURE_537.png', 'images/PICTURE_534.png', 'images/PICTURE_599.png', 'images/PICTURE_363.png', 'images/PICTURE_59.png', 'images/PICTURE_735.png', 'images/PICTURE_111.png', 'images/PICTURE_708.png', 'images/PICTURE_470.png', 'images/PICTURE_267.png', 'images/PICTURE_419.png', 'images/PICTURE_141.png', 'images/PICTURE_114.png', 'images/PICTURE_89.png', 'images/PICTURE_515.png', 'images/PICTURE_282.png', 'images/PICTURE_465.png', 'images/PICTURE_476.png', 'images/PICTURE_170.png', 'images/PICTURE_417.png', 'images/PICTURE_725.png', 'images/PICTURE_132.png', 'images/PICTURE_26.png', 'images/PICTURE_130.png', 'images/PICTURE_573.png', 'images/PICTURE_745.png', 'images/PICTURE_354.png', 'images/PICTURE_635.png', 'images/PICTURE_308.png', 'images/PICTURE_498.png', 'images/PICTURE_7.png', 'images/PICTURE_351.png', 'images/PICTURE_275.png', 'images/PICTURE_369.png', 'images/PICTURE_357.png', 'images/PICTURE_373.png', 'images/PICTURE_68.png', 'images/PICTURE_101.png', 'images/PICTURE_420.png', 'images/PICTURE_19.png', 'images/PICTURE_88.png', 'images/PICTURE_122.png', 'images/PICTURE_475.png', 'images/PICTURE_119.png', 'images/PICTURE_236.png', 'images/PICTURE_457.png', 'images/PICTURE_299.png', 'images/PICTURE_25.png', 'images/PICTURE_117.png', 'images/PICTURE_349.png', 'images/PICTURE_338.png', 'images/PICTURE_716.png', 'images/PICTURE_123.png', 'images/PICTURE_323.png', 'images/PICTURE_370.png', 'images/PICTURE_262.png', 'images/PICTURE_717.png', 'images/PICTURE_348.png', 'images/PICTURE_3.png', 'images/PICTURE_365.png', 'images/PICTURE_358.png', 'images/PICTURE_606.png', 'images/PICTURE_433.png', 'images/PICTURE_627.png', 'images/PICTURE_153.png', 'images/PICTURE_40.png', 'images/PICTURE_43.png', 'images/PICTURE_633.png', 'images/PICTURE_425.png', 'images/PICTURE_478.png', 'images/PICTURE_409.png', 'images/PICTURE_174.png', 'images/PICTURE_37.png', 'images/PICTURE_645.png', 'images/PICTURE_445.png', 'images/PICTURE_732.png', 'images/PICTURE_406.png', 'images/PICTURE_62.png', 'images/PICTURE_362.png', 'images/PICTURE_504.png', 'images/PICTURE_163.png', 'images/PICTURE_378.png', 'images/PICTURE_75.png', 'images/PICTURE_620.png', 'images/PICTURE_505.png', 'images/PICTURE_525.png', 'images/PICTURE_479.png', 'images/PICTURE_202.png', 'images/PICTURE_577.png', 'images/PICTURE_176.png', 'images/PICTURE_116.png', 'images/PICTURE_597.png', 'images/PICTURE_651.png', 'images/PICTURE_255.png', 'images/PICTURE_640.png', 'images/PICTURE_535.png', 'images/PICTURE_435.png', 'images/PICTURE_690.png', 'images/PICTURE_105.png', 'images/PICTURE_653.png', 'images/PICTURE_200.png', 'images/PICTURE_360.png', 'images/PICTURE_276.png', 'images/PICTURE_353.png', 'images/PICTURE_343.png', 'images/PICTURE_84.png', 'images/PICTURE_151.png', 'images/PICTURE_179.png', 'images/PICTURE_576.png', 'images/PICTURE_95.png', 'images/PICTURE_359.png', 'images/PICTURE_604.png', 'images/PICTURE_579.png', 'images/PICTURE_628.png', 'images/PICTURE_85.png', 'images/PICTURE_46.png', 'images/PICTURE_160.png', 'images/PICTURE_371.png', 'images/PICTURE_664.png', 'images/PICTURE_673.png', 'images/PICTURE_147.png', 'images/PICTURE_750.png', 'images/PICTURE_592.png', 'images/PICTURE_685.png', 'images/PICTURE_233.png', 'images/PICTURE_297.png', 'images/PICTURE_687.png', 'images/PICTURE_194.png', 'images/PICTURE_416.png', 'images/PICTURE_304.png', 'images/PICTURE_45.png', 'images/PICTURE_584.png', 'images/PICTURE_746.png', 'images/PICTURE_33.png', 'images/PICTURE_138.png', 'images/PICTURE_528.png', 'images/PICTURE_107.png', 'images/PICTURE_654.png', 'images/PICTURE_79.png', 'images/PICTURE_546.png', 'images/PICTURE_379.png', 'images/PICTURE_407.png', 'images/PICTURE_689.png', 'images/PICTURE_563.png', 'images/PICTURE_372.png', 'images/PICTURE_500.png', 'images/PICTURE_344.png', 'images/PICTURE_273.png', 'images/PICTURE_662.png', 'images/PICTURE_277.png', 'images/PICTURE_418.png', 'images/PICTURE_361.png', 'images/PICTURE_305.png', 'images/PICTURE_389.png', 'images/PICTURE_611.png', 'images/PICTURE_1.png', 'images/PICTURE_562.png', 'images/PICTURE_672.png', 'images/PICTURE_261.png', 'images/PICTURE_232.png', 'images/PICTURE_702.png', 'images/PICTURE_697.png', 'images/PICTURE_238.png', 'images/PICTURE_536.png', 'images/PICTURE_741.png', 'images/PICTURE_312.png', 'images/PICTURE_99.png', 'images/PICTURE_215.png', 'images/PICTURE_642.png', 'images/PICTURE_127.png', 'images/PICTURE_211.png', 'images/PICTURE_452.png', 'images/PICTURE_695.png', 'images/PICTURE_333.png', 'images/PICTURE_588.png', 'images/PICTURE_115.png', 'images/PICTURE_76.png', 'images/PICTURE_324.png', 'images/PICTURE_601.png', 'images/PICTURE_554.png', 'images/PICTURE_78.png', 'images/PICTURE_587.png', 'images/PICTURE_251.png', 'images/PICTURE_92.png', 'images/PICTURE_341.png', 'images/PICTURE_12.png', 'images/PICTURE_339.png', 'images/PICTURE_404.png', 'images/PICTURE_177.png', 'images/PICTURE_598.png', 'images/PICTURE_325.png', 'images/PICTURE_571.png', 'images/PICTURE_410.png', 'images/PICTURE_196.png', 'images/PICTURE_748.png', 'images/PICTURE_615.png', 'images/PICTURE_713.png', 'images/PICTURE_314.png', 'images/PICTURE_665.png', 'images/PICTURE_517.png', 'images/PICTURE_162.png', 'images/PICTURE_80.png', 'images/PICTURE_36.png', 'images/PICTURE_240.png', 'images/PICTURE_454.png', 'images/PICTURE_9.png', 'images/PICTURE_199.png', 'images/PICTURE_98.png', 'images/PICTURE_405.png', 'images/PICTURE_529.png', 'images/PICTURE_258.png', 'images/PICTURE_355.png', 'images/PICTURE_488.png', 'images/PICTURE_124.png', 'images/PICTURE_647.png', 'images/PICTURE_590.png', 'images/PICTURE_63.png', 'images/PICTURE_512.png', 'images/PICTURE_429.png', 'images/PICTURE_523.png', 'images/PICTURE_542.png', 'images/PICTURE_637.png', 'images/PICTURE_728.png', 'images/PICTURE_283.png'];
+
+    console.log(images)
+    // array also contains consent form and placeholder for image + letter blocks
+    images_instruction = ['instructions/placeholder.PNG', 'instructions/consent.PNG', 'instructions/inst1.PNG', 'instructions/inst2.PNG', 'instructions/inst3.PNG', 'instructions/inst4.PNG', 'instructions/inst5.PNG', 'instructions/inst6.PNG', 'instructions/inst7.PNG', 'instructions/inst8.PNG', 'instructions/inst9.PNG'];
+
+    var all_images = images.concat(images_instruction);
+
+    /* define some variables */
+    var imageonly_blocks_number = 48; // the amount of blocks with images
+    var image_blocks_number = 12; // the amount of blocks with images in image + letter blocks
+    var letter_blocks_number = 36; // the amount of blocks with letters (48 * 0.75) in image + letter blocks
+    var total_blocks_number = imageonly_blocks_number + image_blocks_number + letter_blocks_number;
+    var resp_keys = ['D', 'F', 'J', 'K'];
+    var stim_keys = ['D', 'F', 'J', 'K'];
+    var dash_key = ['-'];
+    var timeline = [];
+    var block_number = 0;
+    var block_counter = 0; // use block_counter in combination with block_keys (see below) in the for loop when the design of all trials is determined
+    var welcome_message = ['<p>Welcome to the experiment.</p>' + '<p>Press "Next" to begin.</p>'];
+    var not_supported_message = ['<p>This experiment requires the Chrome or Firefox webbrowser.</p>'];
+    var label_next_button = 'Next';
+
+
+    // there should be 6 blocks of 16 trials each, so 96 trials in total
+    // create an array of 48 trials and shuffle it
+    // 48 = 96/2; the idea is to alternate between image blocks and image + letter blocks; however, letter trials will be randomized across all three letter blocks, thus 48 trials, not just within each image + letter block (16 trials)
+    // define if participant starts with image blocks or image + letter blocks
+    var imageletter_con = Math.floor(Math.random() * 2) ; // either 0 or 1
+    console.log(imageletter_con)
+
+    // random_numbers are the block numbers of image + letter blocks
+    if (imageletter_con == 0) {
+      var random_numbers = [17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
+        81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96];
+    } else if (imageletter_con == 1) {
+      var random_numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
+    65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80];
+    };
+    random_numbers = jsPsych.randomization.shuffle(random_numbers);
+    console.log(random_numbers)
+
+    // select 36 first elements of the random_numbers array; when block_number = block_keys, a response key/letter instead of an image will be presented, but importantly, the 36 letters are counterbalanced across all four response keys (see key_list below)
+    var block_keys = random_numbers.filter((random_numbers,idx) => idx < letter_blocks_number);
+    block_keys.sort(function(a, b){return a-b});
+    //function fillArray() {
+    //  block_keys.push((random_numbers.filter((random_numbers,idx) => idx < letter_blocks_number)));
+    //}
+    console.log(block_keys)
+
+    // select the remaining 12 last elements of the random_numbers array; on these blocks, an image will be presented, but importantly, the 12 images are counterbalanced across all four response keys (see key_list below)
+    var block_images = random_numbers.slice(36);
+    block_images.sort(function(a, b){return a-b});
+    //function fillArray() {
+    //  block_images.push((random_numbers.slice(12);
+    //}
+    console.log(block_images)
+
+    // define instruction trials for image blocks depending on imageletter_con
+    if (imageletter_con == 0) {
+      var instruction_type1_blocks = [1, 33, 65];
+    } else {
+      var instruction_type1_blocks = [17, 49, 81];
+    };
+
+    // define instruction trials for image + letter blocks depending on imageletter_con
+    if (imageletter_con == 0) {
+      var instruction_type2_blocks = [17, 49, 81];
+    } else {
+      var instruction_type2_blocks = [1, 33, 65];
+    };
+
+    console.log(instruction_type1_blocks)
+    console.log(instruction_type2_blocks)
+
+    /* create trials to be used in the experiment */
+    // shuffle all images
+    images = jsPsych.randomization.shuffle(images);
+
+    // create an empty array to save the generated trials
+    var trials = [];
+
+    function repeatArray(arr, count) {
+       var ln = arr.length;
+       var b = new Array();
+       for(i=0; i<count; i++) {
+          b.push(arr[i%ln]);
+          }
+         return b;
+     }
+
+    var imageonly_key_list = repeatArray([0, 1, 2, 3], imageonly_blocks_number);
+    imageonly_key_list = jsPsych.randomization.shuffle(imageonly_key_list);
+
+    var image_key_list = repeatArray([0, 1, 2, 3], image_blocks_number);
+    image_key_list = jsPsych.randomization.shuffle(image_key_list);
+
+    var letter_key_list = repeatArray([0, 1, 2, 3], letter_blocks_number);
+    letter_key_list = jsPsych.randomization.shuffle(letter_key_list);
+
+    for (var i = 0; i < total_blocks_number; i ++) {
+
+      // update the block number
+      block_counter = block_counter + 1
+
+      // based on the block number, determine whether the current block is an image block or a letter block
+      // select the correct key position for the current block
+      if (block_keys.includes(block_counter)) {
+        var key_position = letter_key_list.pop();
+      } else if (block_images.includes(block_counter)) {
+        var key_position = image_key_list.pop();
+      } else {
+        var key_position = imageonly_key_list.pop();
+      }
+
+      // get four images, these four images will be used in one mini-block
+      var stim1 = images[4*i];
+      var stim2 = images[4*i+1];
+      var stim3 = images[4*i+2];
+      var stim4 = images[4*i+3];
+
+      // use the random number generated above to determine which of the four images will actually be presented
+      var stim = images[4*i+key_position];
+      var stimstim = images[4*i+key_position];
+      //console.log(stimstim)
+
+      // use the random number generated above to determine which of the response keys will be presented
+      var stim_2 = stim_keys[key_position];
+      console.log(stim_2)
+
+      // for both stim and stim_2, correct_key should be:
+      var correct_key = resp_keys[key_position];
+
+      var instruct_images = '<div id="images">' + '<a><img src="' + stim1 + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + resp_keys[0] + '</div></a><a><img src="' + stim2 + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + resp_keys[1] + '</div></a><a><img src="' + stim3 + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + resp_keys[2] + '</div></a><a><img src="' + stim4 + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + resp_keys[3] + '</div></a></div>';
+
+      stim = "<div><img width = '150' height = '150' src = '" + stim + "'></img></div>";
+
+      // stim2: image and response key are presented at the position of the instruction screen
+      //stim_2 = '<div id="images">' + '<a><img src="' + stimstim + '" width="150px" height="150px" style="padding-bottom: 50px; "><div class="caption">' + stim_2 + '</div></a></div>';
+
+      if (stim_2 == 'D') {
+        stim_2 = '<div id="images">' + '<a><img src="' + stimstim + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + resp_keys[0] + '</div></a><a><img src="' + 'instructions/placeholder.PNG' + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + dash_key[0] + '</div></a><a><img src="' + 'instructions/placeholder.PNG' + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + dash_key[0] +
+        '</div></a><a><img src="' + 'instructions/placeholder.PNG' + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + dash_key[0] + '</div></a></div>';
+      } else if (stim_2 == 'F') {
+        stim_2 = '<div id="images">' + '<a><img src="' + 'instructions/placeholder.PNG' + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + dash_key[0] + '</div></a><a><img src="' + stimstim + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + resp_keys[1] + '</div></a><a><img src="' + 'instructions/placeholder.PNG' + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + dash_key[0] +
+        '</div></a><a><img src="' + 'instructions/placeholder.PNG' + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + dash_key[0] + '</div></a></div>';
+      } else if (stim_2 == 'J') {
+        stim_2 = '<div id="images">' + '<a><img src="' + 'instructions/placeholder.PNG' + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + dash_key[0] + '</div></a><a><img src="' + 'instructions/placeholder.PNG' + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + dash_key[0] + '</div></a><a><img src="' + stimstim + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + resp_keys[2] +
+        '</div></a><a><img src="' + 'instructions/placeholder.PNG' + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + dash_key[0] + '</div></a></div>';
+      } else {
+        stim_2 = '<div id="images">' + '<a><img src="' + 'instructions/placeholder.PNG' + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + dash_key[0] + '</div></a><a><img src="' + 'instructions/placeholder.PNG' + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + dash_key[0] + '</div></a><a><img src="' + 'instructions/placeholder.PNG' + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + dash_key[0] + '</div></a><a><img src="' + stimstim + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + resp_keys[3] + '</div></a></div>';
+      };
+
+      //if (stim_2 == 'D') {
+      //  stim_2 = '<div id="images">' + '<a><img src="' + stimstim + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + resp_keys[0] + '</div></a><a><img src="' + 'instructions/dash.PNG' + '" width="150px" height="150px" style="padding-bottom: 1px;"><a><img src="' + 'instructions/dash.PNG' + '" width="150px" height="150px"></a></a><a><img src="' + 'instructions/dash.PNG'
+      //  + '" width="150px" height="150px" style="padding-bottom: 1px;"><a><img src="' + 'instructions/dash.PNG' + '" width="150px" height="150px"></a></a><a><img src="' + 'instructions/dash.PNG' + '" width="150px" height="150px" style="padding-bottom: 1px;"><a><img src="' + 'instructions/dash.PNG' + '" width="150px" height="150px"></a></a></div>';
+      //} else {
+      //  stim_2 = '<div id="images">' + '<a><img src="' + stimstim + '" width="150px" height="150px" style="padding-bottom: 50px; "><div class="caption">' + stim_2 + '</div></a></div>';
+      //}
+
+
+      // put everyting into one object and tell programm on which trials it should show an image and on which trials it should show a response key (block_keys)
+      if (block_keys.includes(block_counter))  {
+        var one_trial = {instruct_images: instruct_images,
+                     stimulus: stim_2,
+                     data:{
+                       stim1: stim1,
+                       stim2: stim2,
+                       stim3: stim3,
+                       stim4: stim4,
+                       stimulus: stim_2,
+                       correct_key: correct_key
+                     }
+        };
+      } else {
+        var one_trial = {instruct_images: instruct_images,
+                    stimulus:stim,
+                    data:{
+                      stim1: stim1,
+                      stim2: stim2,
+                      stim3: stim3,
+                      stim4: stim4,
+                      stimulus: stim,
+                      correct_key: correct_key
+                    }
+         };
+       };
+    //}
+   console.log(block_counter)
+   console.log(block_keys)
+
+   // add the current mini-block to the experimental array
+   trials.push(one_trial);
+  };
+
+
+    // is the experiment running from a server or not? (this determines if data is saved on server or offline)
+    if (document.location.host) { // returns your host or null
+      online = true;
+    } else {
+      online = false;
+    };
+
+   // welcome and browser detector, end experiment if no compatible browser
+    var welcome = {
+      type: "instructions",
+      pages: welcome_message,
+      show_clickable_nav: true,
+      button_label_next: label_next_button,
+      on_start: function(trial){
+        if (bowser.name == 'Firefox' || bowser.name == 'Chrome'){
+          trial.pages = welcome_message;
+        } else {
+          trial.pages = not_supported_message;
+          setTimeout(function(){location.href="html/not_supported.html"}, 2000);
+        }
+      }
+    };
+
+   timeline.push(welcome);
+
+    // prolific ID
+    var prolific = {
+      type: 'survey-text',
+      questions: [
+      {prompt: "Please turn off music, cell phone and other devices that might be distracting. Enter your prolific ID below: ", required: true}],
+      on_finish: function(data) {
+        var responses = JSON.parse(data.responses);
+        var prolific_ID = responses.Q0;
+        jsPsych.data.addProperties({
+        prolific_ID: prolific_ID
+        });
+      }
+    };
+
+    timeline.push(prolific);
+
+    // fullscreen mode
+    var fullscreen_mode = {
+      type: 'fullscreen',
+      fullscreen_mode: true
+    };
+
+    timeline.push(fullscreen_mode);
+
+    // informed consent trial. The informed_consent_text variable comes from /configuration/text_variables.js
+    var consent = {
+      type: 'instructions',
+      pages: ['<img src="instructions/consent.PNG"></img>'],
+      show_clickable_nav: true,
+      button_label_next: "I agree",
+      allow_backward: false
+    };
+
+    timeline.push(consent);
+
+    // get participant's age and add it to the datafile
+    var age = {
+      type: 'survey-text',
+      questions: [{
+        prompt: "Please enter your age",
+        required: true
+      }, ],
+      on_finish: function(data) {
+        var responses = JSON.parse(data.responses);
+        var code = responses.Q0;
+        jsPsych.data.addProperties({
+          age: code
+        });
+      }
+    };
+
+    timeline.push(age);
+
+    // get participant's gender and add it to the datafile
+    var gender = {
+      type: 'survey-multi-choice',
+      questions: [{
+        prompt: "Please enter your gender",
+        options: ["male", "female", "other", "I don't want to say"],
+        required: true
+      }, ],
+      on_finish: function(data) {
+        var responses = JSON.parse(data.responses);
+        var code = responses.Q0;
+        jsPsych.data.addProperties({
+          gender: code
+        });
+      }
+    };
+
+    timeline.push(gender);
+
+    // get participant's dominant hand and add it to the datafile
+    var handedness = {
+      type: 'survey-multi-choice',
+      questions: [{
+        prompt: "Please enter your handedness",
+        options: ["left", "right", "I don't know"],
+        required: true
+      }, ],
+      on_finish: function(data) {
+        var responses = JSON.parse(data.responses);
+        var code = responses.Q0;
+        jsPsych.data.addProperties({
+          handedness: code
+        });
+      }
+    };
+
+    timeline.push(handedness);
+
+    // instructions for the experiment
+    var instructions_experiment = {
+        type: 'instructions',
+        pages: [
+          '<img src="instructions/inst1.PNG"></img>',
+          '<img src="instructions/inst2.PNG"></img>',
+          '<img src="instructions/inst3.PNG"></img>',
+          '<img src="instructions/inst4.PNG"></img>',
+          '<img src="instructions/inst5.PNG"></img>',
+          '<img src="instructions/inst6.PNG"></img>',
+          '<img src="instructions/inst7.PNG"></img>',
+          '<img src="instructions/inst8.PNG"></img>'
+        ],
+        key_forward: 'space',
+        key_backward: 'j',
+        on_start: function() {
+          document.body.style.cursor = 'none'; // hide the mouse cursor
+        }
+      };
+      timeline.push(instructions_experiment);
+
+
+
+    // start screen
+    var start_screen = {
+      type: 'html-keyboard-response',
+      stimulus: '<div style="font-size:30px;">Press space to start the next block</div>',
+      choices: ['space'],
+      on_finish: function(data) {
+        console.log(data);
+      }
+    };
+
+    // instruction screen
+    var instruction_screen = {
+      type: "html-keyboard-response",
+      stimulus: jsPsych.timelineVariable('instruct_images'),
+      choices: ['space'],
+      on_finish: function(data) {
+        console.log(data);
+      }
+    };
+
+    // define fixation cross
+    var fixation = {
+        type: 'html-keyboard-response',
+        stimulus: '<div style="font-size:60px;">+</div>',
+        choices: jsPsych.NO_KEYS,
+        trial_duration: 500,
+        data: {test_part: 'fixation'}
+    };
+
+    // one response trial
+    var test = {
+        type: "html-keyboard-response",
+        stimulus: jsPsych.timelineVariable('stimulus'),
+        choices: resp_keys,
+        data: jsPsych.timelineVariable('data'),
+        on_finish: function(data){
+          // add test part
+          data.test_part = 'preparation';
+
+          // add block number
+          block_number++;
+          data.block_number = block_number;
+
+          // add condition to distinguish who started with image trials = 0 and who started with image + letter trials = 1
+          data.imageletter_con = imageletter_con;
+
+          // add whether the current block is an image + letter block = 1 or just an image block = 0
+          if (random_numbers.includes(block_number)) {
+            data.block_type = 1;
+          } else {
+            data.block_type = 0;
+          }
+
+          // add whether the current block shows a letter = 1 or an image = 0
+          if (block_keys.includes(block_number)) {
+            data.letter_block = 1;
+          } else {
+            data.letter_block = 0;
+          }
+
+          // add start RT
+          var start_rt = jsPsych.data.get().last(4).values()[0]; // get data from the start screen
+          data.startRT = start_rt.rt;
+
+          // add preparation RT
+          var prep_rt = jsPsych.data.get().last(3).values()[0]; // get data from the preparation screen
+          data.prepRT = prep_rt.rt;
+
+          // add whether the response is correct or not
+          data.correct = data.key_press == jsPsych.pluginAPI.convertKeyCharacterToKeyCode(data.correct_key);
+          data.pressed_key = jsPsych.pluginAPI.convertKeyCodeToKeyCharacter(data.key_press);
+
+          console.log(data);
+          console.log(block_keys)
+          console.log(block_number)
+
+        }
+    };
+
+    // feedback screen
+    var feedback = {
+        type: 'html-keyboard-response',
+        stimulus: function() {
+            // get informtion from the response trial
+            var resp_trial = jsPsych.data.get().last().values()[0];
+
+            console.log(resp_trial);
+
+            if (resp_trial.correct) {
+                return '<div style="font-size:30px;">Correct Response. Response Time: ' + resp_trial.rt + ' milliseconds.</div>';
+            } else {
+                return '<div style="font-size:30px;">Incorrect Response. Response Time: ' + resp_trial.rt + ' milliseconds.</div>';
+            }
+
+        },
+
+        choices: jsPsych.NO_KEYS,
+        trial_duration: 1000
+    };
+
+    // blank screen
+    var blank_screen = {
+        type: 'html-keyboard-response',
+        stimulus: '<div style="font-size:60px;"> </div>',
+        choices: jsPsych.NO_KEYS,
+        trial_duration: 500
+    };
+
+
+    // instruction screen for image blocks; will be presented before trials 1, 33, 65 if imageletter_con == 0 and on trials 17, 49, 81 if imageletter_con == 1
+    var imageinstruction_screen = {
+      type: 'html-keyboard-response',
+      stimulus: '<div style="font-size:30px;">In the following blocks, only an image will be presented after the instructions.<br><br>Press space to start.</div>',
+      choices: ['space'],
+    };
+
+
+    // instruction screen for image + letter blocks; will be presented before trials 17, 49, 81 if imageletter_con == 0 and on trials 1, 33, 65 if imageletter_con == 1
+    var letterinstruction_screen = {
+      type: 'html-keyboard-response',
+      stimulus: '<div style="font-size:30px;">In the following blocks, an image can be presented alone or with the response key after the instructions.<br><br>Press space to start.</div>',
+      choices:  ['space'],
+    };
+
+
+    // imageletter_con == 0: show instruction screen for image blocks only before trials 1, 33, 65
+    // imageletter_con == 1; show instruction screen for image + letter blocks only before trials 1, 33, 65
+    var instruction_node1 = {
+        timeline: [imageinstruction_screen],
+        conditional_function: function(){
+          if (instruction_type1_blocks.includes(block_number+1)) {
+            return true;
+          } else {
+            return false;
+          }
+        }
+     };
+
+
+    // imageletter_con == 0: show instruction screen for image + letter blocks only before trials 17, 49, 81
+    // imageletter_con == 1: show instruction screen for image blocks only before trials 17, 49, 81
+    var instruction_node2 = {
+        timeline: [letterinstruction_screen],
+        conditional_function: function(){
+          if (instruction_type2_blocks.includes(block_number+1)) {
+            return true;
+          } else {
+            return false;
+          }
+        }
+      };
+
+
+    // mini-block
+    var test_procedure = {
+        timeline: [instruction_node1, instruction_node2, start_screen, instruction_screen, fixation, test, feedback, blank_screen],
+        timeline_variables: trials
+    };
+
+    timeline.push(test_procedure);
+
+    // instructions for UPPS
+    var instructions_UPPS = {
+        type: 'instructions',
+        pages: [
+          '<img src="instructions/inst9.PNG"></img>'
+        ],
+        key_forward: 'space',
+        //key_backward: 'j',
+        on_start: function() {
+          document.body.style.cursor = 'auto'; // show the mouse cursor
+        }
+      };
+      timeline.push(instructions_UPPS);
+
+      // show UPPSP questionnaire
+      timeline.push(...UPPSP_items);
+
+      // debriefing after UPPS
+      var debriefing = {
+     type: 'html-keyboard-response',
+     stimulus: "<p>Thanks! In this study, we aim to investigate how people learn new instructions and perform tasks that they have never executed before." +
+     "Therefore, we measure how long it takes participants to learn the mappings between the images and the response keys as well as how long it takes participants to respond to an image and whether that response is correct or incorrect.</p>" +
+     "<p>We really appreciate your participation and contribution to this research. If you have any questions, you can contact the researcher at christina.reimer@ugent.be.</p>"+
+     "<p><a href='https://app.prolific.co/submissions/complete?cc=4AC9DDC0'>Click here to complete the experiment and return to Prolific.</a></p>",
+     choices: jsPsych.NO_KEYS
+   };
+        timeline.push(debriefing);
+
+    // function that appends data to an existing file (or creates the file if it does not exist)
+    function appendData(filename, filedata) {
+      $.ajax({ // make sure jquery-1.7.1.min.js is loaded in the html header for this to work
+        type: 'post',
+        cache: false,
+        url: 'php/save_data_append.php', // IMPORTANT: change the php script to link to the directory of your server where you want to store the data!
+        data: {
+          filename: filename,
+          filedata: filedata
+        },
+      });
+    };
+
+    // start the experiment
+    jsPsych.init({
+      timeline: timeline,
+      preload_images: all_images,
+      on_data_update: function(data){
+        if (online){
+          var subjID = jsPsych.data.get().last(1).values()[0]['prolific_ID'];
+          if (data.trial_index == 1){ // write header at first event
+            var header = "prolific_ID, age, gender, handedness, imageletter_con, block_number, block_type, letter_block, stim1, stim2, stim3, stim4, stimulus, pressed_key, correct_key, correct, startRT, prepRT, rt, time_elapsed, factor, resp\n";
+            appendData('CIA_Preparation_PrepStratOnline3.1_'+ subjID +'.csv', header);
+          } else if (data.test_part == 'preparation' || data.trial_type == 'survey-likert'){ // append data each stimulus when a categorize-html occurs
+            data_row = data.prolific_ID + ',' + data.age + ',' + data.gender + ',' + data.handedness + ',' + data.imageletter_con + ',' + data.block_number + ',' + data.block_type + ',' + data.letter_block + ',' +
+            data.stim1 + ',' + data.stim2 + ',' + data.stim3 + ',' + data.stim4 + ',' + data.stimulus + ',' + data.pressed_key + ',' + data.correct_key + ',' + data.correct + ',' +
+            data.startRT + ',' + data.prepRT + ','  + data.rt + ',' + data.time_elapsed + ',' + data.factor + ',' + data.resp + '\n';
+
+            appendData('CIA_Preparation_PrepStratOnline3.1_'+ subjID +'.csv', data_row);
+        }
+      }
+    },
+      on_finish: function() {
+          if (!online){
+            jsPsych.data.get().localSave('csv','mydata.csv');
+          }
+      }
+    })
+  </script>
+</html>

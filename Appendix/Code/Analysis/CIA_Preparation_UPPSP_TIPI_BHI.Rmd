@@ -1,0 +1,129 @@
+---
+title: "Appendix - Correlation between preparation time (prepRT) and UPPSP | TIPI | BHI"
+author: "Christina Reimer"
+date: "2021 01 12"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+
+```{r setup, include=TRUE, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r load libraries, warning=FALSE, message=FALSE, echo=FALSE}
+library(afex)
+library(BayesFactor)
+library(car)
+library(cowplot)
+library(DataCombine)
+library(data.table)
+library(extrafont)
+library(ez)
+library(ggpubr)
+library(gridExtra)
+library(knitr)
+library(PerformanceAnalytics)
+library(tidyverse)
+```
+
+
+```{r load data, warning=FALSE, echo=FALSE}
+# clear directory
+rm(list=ls()) 
+
+### UPPSP
+# load data
+Exp0 <- read_csv("../../Data/Raw/Exp0_prepRT_UPPSP")
+Exp1a <- read_csv("../../Data/Raw/Exp1a_prepRT_UPPSP")
+Exp1b <- read_csv("../../Data/Raw/Exp1b_prepRT_UPPSP")
+Exp2 <- read_csv("../../Data/Raw/Exp2_prepRT_UPPSP")
+Exp3 <- read_csv("../../Data/Raw/Exp3_prepRT_UPPSP")
+
+# add Experiment
+Exp0$participant <- sub("^", "Exp0_", Exp0$participant )
+Exp1a$participant <- sub("^", "Exp1a_", Exp1a$participant )
+Exp1b$participant <- sub("^", "Exp1b_", Exp1b$participant )
+Exp2$participant <- sub("^", "Exp2_", Exp2$participant )
+Exp3$participant <- sub("^", "Exp3_", Exp3$participant )
+
+# combine data in one big file
+UPPSP_all <- rbind(Exp0, Exp1a, Exp1b, Exp2, Exp3)
+
+
+### TIPI and BHI
+# load data
+Exp2_ <- read_csv("../../Data/Raw/Exp2_prepRT_TIPI_BHI")
+Exp3_ <- read_csv("../../Data/Raw/Exp3_prepRT_TIPI_BHI")
+
+# add Experiment
+Exp2_$participant <- sub("^", "Exp2_", Exp2_$participant )
+Exp3_$participant <- sub("^", "Exp3_", Exp3_$participant )
+
+# combine data in one big file
+TIPI_BHI_all <- rbind(Exp2_, Exp3_)
+```
+
+
+```{r correlation preparation time and UPPSP, warning=FALSE, echo=FALSE}
+# use the chart.Correlation() function to get an overview of all correlations
+UPPSP_prepRT <- UPPSP_all %>%
+  select(prepRT, Perseverance_Score:SenSeeking_Score)
+
+PerformanceAnalytics::chart.Correlation(
+  UPPSP_prepRT,
+  histogram = T,
+  method = "pearson"
+)
+
+# prepRT
+prepRT_perseverance = cor.test(UPPSP_all$prepRT, UPPSP_all$Perseverance_Score, method = "pearson")
+prepRT_perseverance
+
+prepRT_premeditation = cor.test(UPPSP_all$prepRT, UPPSP_all$Premeditation_Score, method = "pearson")
+prepRT_premeditation
+
+prepRT_posurgency = cor.test(UPPSP_all$prepRT, UPPSP_all$PosUrgency_Score, method = "pearson")
+prepRT_posurgency
+
+prepRT_negurgency = cor.test(UPPSP_all$prepRT, UPPSP_all$NegUrgency_Score, method = "pearson")
+prepRT_negurgency
+
+prepRT_senseeking = cor.test(UPPSP_all$prepRT, UPPSP_all$SenSeeking_Score, method = "pearson")
+prepRT_senseeking
+```
+
+
+```{r correlation preparation time and TIPI | BHI, warning=FALSE, echo=FALSE}
+# use the chart.Correlation() function to get an overview of all correlations
+TIPI_prepRT <- TIPI_BHI_all %>%
+  select(prepRT, TIPI_score)
+
+PerformanceAnalytics::chart.Correlation(
+  TIPI_prepRT,
+  histogram = T,
+  method = "pearson"
+)
+
+# prepRT and TIPI 
+prepRT_TIPI = cor.test(TIPI_BHI_all$prepRT, TIPI_BHI_all$TIPI_score, method = "pearson")
+prepRT_TIPI
+
+
+# use the chart.Correlation() function to get an overview of all correlations
+BHI_prepRT <- TIPI_BHI_all %>%
+  select(prepRT, BHI_score)
+
+PerformanceAnalytics::chart.Correlation(
+  BHI_prepRT,
+  histogram = T,
+  method = "pearson"
+)
+
+# prepRT and TIPI 
+prepRT_BHI = cor.test(TIPI_BHI_all$prepRT, TIPI_BHI_all$BHI_score, method = "pearson")
+prepRT_BHI
+```

@@ -1,0 +1,1525 @@
+---
+title: "Experiments 1a and 1b"
+author: "Christina Reimer"
+date: "2020 07 02"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+
+```{r setup, include=TRUE, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r load libraries, warning=FALSE, message=FALSE, echo=FALSE}
+library(afex)
+library(BayesFactor)
+library(car)
+library(cowplot)
+library(DataCombine)
+library(data.table)
+library(extrafont)
+library(ez)
+library(ggpubr)
+library(gridExtra)
+library(knitr)
+library(tidyverse)
+```
+
+
+```{r load data Exp1a, warning=FALSE, echo=FALSE}
+# clear directory
+rm(list=ls()) 
+
+
+# open files
+input_Exp1a = data.frame()
+
+files <- dir(path = "../../Data/Raw", pattern = "CIA_Preparation_Exp1a_*")
+
+for (i in files) {
+  
+  tmp <- read_csv(file = file.path("../../Data/Raw/", i), col_types = cols())
+  
+  # add the files to the data frame
+  input_Exp1a = rbind (input_Exp1a, tmp)
+  rm(tmp)
+}
+
+
+# select UPPSP data
+UPPSP_Exp1a = input_Exp1a %>%
+  filter(factor %in% c("Perseverance", "Premeditation", "Positive Urgency", "Negative Urgency", "Sensation Seeking"))
+
+
+# convert some factor variables to numeric variables
+input_Exp1a$block_number = as.numeric(as.character(input_Exp1a$block_number))
+input_Exp1a$prepRT = as.numeric(as.character(input_Exp1a$prepRT))
+input_Exp1a$rt = as.numeric(as.character(input_Exp1a$rt))
+
+
+# add numeric equivalent for correct variable; correct = TRUE = 1, correct = FALSE = 0
+input_Exp1a = input_Exp1a %>%
+  mutate(acc = correct)
+input_Exp1a$acc = as.integer(as.logical(input_Exp1a$acc)) 
+
+
+# filter UPPS data for the analysis
+input_Exp1a = input_Exp1a %>%
+  filter(block_number <= 96)
+
+
+# block_type: rename 1 to 50%-image-alone, rename 0 to 100%-image-alone
+input_Exp1a$block_type[input_Exp1a$block_type == "1"] = "50%"
+input_Exp1a$block_type[input_Exp1a$block_type == "0"] = "100%"
+
+
+# rename prolific_ID into participant
+names(input_Exp1a)[1] = "participant"
+
+
+# demographics
+demographics = input_Exp1a %>%
+  summarise(mean= mean(age), 
+            sd= sd(age), 
+            max = max(age),
+            min = min(age))
+
+
+gender = input_Exp1a %>%
+  filter(block_number == "1") %>%
+  group_by(gender) %>%
+  count()
+```
+
+
+#### Experiment 1a
+#### PrepRT analysis depending on condition (i.e., 100%-image-alone vs 50%-image-alone)
+```{r Exp 1a prepRT analysis and plot, warning=FALSE, message=FALSE, echo=FALSE}
+# remove outliers and calculate prepRT depending on condition
+prepRT1a = input_Exp1a %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant, block_type) %>%
+  summarise(prepRT = mean(prepRT)) 
+
+
+prepRT1a_GM = prepRT1a %>%
+  group_by(block_type) %>%
+  summarise(
+    prepRT = mean(prepRT))
+kable(prepRT1a_GM, caption = "PrepRT depending on condition", digits = 2) 
+
+
+# calculate removed trials in %
+#100 - ((100/4799)*4620)
+
+
+# z transform prepRT
+prepRT1a_cor = input_Exp1a %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(block_type == '100%') %>%
+  group_by(participant) %>%
+  #mutate(prepRT_z = scale(prepRT, center = TRUE, scale = TRUE)) %>%
+  summarise(prepRT = mean(prepRT))
+
+
+# pairwise comparisons including NHST and Bayes t-tests for PrepRT depending on condition
+source("pairwise_comparisons.R") #pw
+
+prepRT1a_wide = prepRT1a %>%
+  dcast(participant ~ block_type, value.var = "prepRT")
+
+prepRT1a_wide_pw = TES(prepRT1a_wide$`100%`, prepRT1a_wide$`50%`, paired=TRUE) 
+
+row.names(prepRT1a_wide_pw) = c('PrepRT')
+kable(prepRT1a_wide_pw, caption = "Paired-samples t-test on PrepRT", digits = 2)
+
+
+# plot prepRT
+level_order = c('100%', '50%')
+
+plot_PrepRT1a = ggplot(prepRT1a, aes(x = factor(block_type, level = level_order), y = prepRT)) +
+  geom_line(aes(group = participant), colour = "grey") +
+  geom_point() +
+  geom_boxplot(colour = "black", fill="grey", alpha = 0, width=0.1) +
+  
+  scale_y_continuous(breaks = c(2000,4000,6000,8000,10000,12000), limits = c(2000,12000)) +
+  
+  stat_summary(fun.prepRT=mean, colour = "red", geom="line", aes(group=1))  + 
+  stat_summary(fun.prepRT=mean, colour = "red", geom="point") +
+  stat_summary(fun.data = mean_cl_normal, colour = "red", width = 0.1, geom = "errorbar") +
+  
+  xlab("Image-alone Condition") +
+  ylab("Preparation RT (ms)") + 
+      
+  ggtitle("Preparation depending on condition") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+    
+  theme(text = element_text(face = "plain", size = 14)) +
+  theme(axis.text = element_text(size = 14, color = "black")) +
+  theme(axis.title.x = element_text(face = "plain", size = 14)) +
+  theme(axis.title.x = element_text(margin = margin(t = 16, r = 0, b = 0, l = 00))) +
+  theme(axis.title.y = element_text(face = "plain", size = 14)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 16, b = 0, l = 0))) +
+  theme(axis.ticks = element_line(size = 1)) +
+    
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+plot_PrepRT1a
+#ggsave("plot_PrepRT1a.png", width = 24, height = 16, units = "cm")
+
+
+# run pair analysis
+sequentialRun1a = input_Exp1a %>%
+  group_by(participant, block_number) %>%
+  mutate(run = 99)
+
+sequentialRun1a$run[sequentialRun1a$block_number <= 32] <- 1
+sequentialRun1a$run[sequentialRun1a$block_number >= 33 & sequentialRun1a$block_number <= 64] <- 2
+sequentialRun1a$run[sequentialRun1a$block_number >= 65 & sequentialRun1a$block_number <= 96] <- 3
+  
+# analyze PrepRT depending on run and block_type 
+sequentialRun1a_prepRT = sequentialRun1a %>%  
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant, run, block_type) %>%
+  summarise(prepRT = mean(prepRT)) 
+
+GM_sequentialRun1a_prepRT = sequentialRun1a_prepRT %>%
+  group_by(run, block_type) %>%
+  summarise(
+    prepRT = mean(prepRT))
+kable(GM_sequentialRun1a_prepRT, caption = "PrepRT depending on run and block_type", digits = 2) 
+
+
+# stats run pair analysis
+source("pairwise_comparisons.R")
+
+# run 1
+sequentialRun1a_prepRT_run1 = sequentialRun1a_prepRT %>%
+  filter(run == 1)
+
+sequentialRun1a_prepRT_run1_wide = sequentialRun1a_prepRT_run1 %>%
+  dcast(participant ~ block_type, value.var = "prepRT")
+prepRT1a_run1 = TES(sequentialRun1a_prepRT_run1_wide$'100%', sequentialRun1a_prepRT_run1_wide$'50%', paired=TRUE)
+
+# run 2
+sequentialRun1a_prepRT_run2 = sequentialRun1a_prepRT %>%
+  filter(run == 2)
+
+sequentialRun1a_prepRT_run2_wide = sequentialRun1a_prepRT_run2 %>%
+  dcast(participant ~ block_type, value.var = "prepRT")
+prepRT1a_run2 = TES(sequentialRun1a_prepRT_run2_wide$'100%', sequentialRun1a_prepRT_run2_wide$'50%', paired=TRUE)
+
+# run 3
+sequentialRun1a_prepRT_run3 = sequentialRun1a_prepRT %>%
+  filter(run == 3)
+
+sequentialRun1a_prepRT_run3_wide = sequentialRun1a_prepRT_run3 %>%
+  dcast(participant ~ block_type, value.var = "prepRT")
+prepRT1a_run3 = TES(sequentialRun1a_prepRT_run3_wide$'100%', sequentialRun1a_prepRT_run3_wide$'50%', paired=TRUE)
+
+# putting all runs together
+output_prepRT1a_runs = rbind(prepRT1a_run1, prepRT1a_run2, prepRT1a_run3)
+row.names(output_prepRT1a_runs) = c('prepRT_1a_run1', 'prepRT_1a_run2', 'prepRT_1a_run3')
+kable(output_prepRT1a_runs, caption = "Pairwise Comparisons for each run between block types for PrepRT", digits = 2)
+``` 
+
+
+\newpage 
+#### Performance on image-alone trials depending on condition (i.e., 100%-image-alone vs 50%-image-alone)
+```{r Exp 1a ACC and exeRT image-alone trials, warning=FALSE, message=FALSE, echo=FALSE}
+# ACC
+# exclude prepRT and exeRT outliers and image-and-letter trials
+# calculate mean ACC
+ACC_imageonly1a = input_Exp1a %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(letter_block == 0) %>%
+  group_by(participant, block_type) %>%
+  summarise(ACC = mean(acc))
+
+ACC_imageonly1a_GM = ACC_imageonly1a %>%
+  group_by(block_type) %>%
+  summarise(
+    ACC = mean(ACC))
+kable(ACC_imageonly1a_GM, caption = "ACC on image-alone trials depending on condition", digits = 2) 
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+ACC_imageonly1a_wide = ACC_imageonly1a %>%
+  dcast(participant ~ block_type, value.var = "ACC")
+
+ACC_imageonly1a_pw = TES(ACC_imageonly1a_wide$`100%`, ACC_imageonly1a_wide$`50%`, paired=TRUE)
+
+row.names(ACC_imageonly1a_pw) = c('ACC')
+kable(ACC_imageonly1a_pw, caption = "Paired-samples t-test on ACC", digits = 2) 
+
+
+# Correct exeRT
+# exclude prepRT and exeRT outliers as well as incorrect trials and image-and-letter trials
+# calculate mean exeRT
+RT_imageonly1a = input_Exp1a %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(correct == "TRUE") %>%
+  filter(letter_block == 0) %>%
+  group_by(participant, block_type) %>%
+  summarise(RT = mean(rt))
+
+RT_imageonly1a_GM = RT_imageonly1a %>%
+  group_by(block_type) %>%
+  summarise(
+    RT = mean(RT))
+kable(RT_imageonly1a_GM, caption = "ExeRT on image-alone trials depending on condition", digits = 2) 
+
+
+# calculate removed trials (i.e., incorrect trials) in %
+#100 - ((100/4620)*4100)
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+RT_imageonly1a_wide = RT_imageonly1a %>%
+  dcast(participant ~ block_type, value.var = "RT")
+
+RT_imageonly1a_pw = TES(RT_imageonly1a_wide$`100%`, RT_imageonly1a_wide$`50%`, paired=TRUE)
+
+row.names(RT_imageonly1a_pw) = c('ExeRT')
+kable(RT_imageonly1a_pw, caption = "Paired-samples t-test on exeRT", digits = 2) 
+```
+
+
+\newpage 
+#### Performance on image-and-letter trials
+```{r Exp 1a image-and-letter trials, warning=FALSE, message=FALSE, echo=FALSE}
+# ACC on image-and-letter trials in the 50%-image-alone condition
+# exclude prepRT and exeRT outliers and image-alone trials
+# calculate mean ACC
+ACC_imageletter1a = input_Exp1a %>%
+  filter(letter_block == "1") %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant) %>%
+  summarise(
+    ACC = mean(acc))
+
+ACC_imageletter1a_forpaper = ACC_imageletter1a %>%
+  summarise(mean.ACC = mean(ACC, na.rm = TRUE),
+            sd.ACC = sd(ACC, na.rm = TRUE),
+            n.ACC = n()) %>%
+  mutate(se.ACC = sd.ACC / sqrt(n.ACC),
+         lower.ci.ACC = mean.ACC - qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC,
+         upper.ci.ACC = mean.ACC + qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC)
+kable(ACC_imageletter1a_forpaper, caption = "ACC on image-and-letter trials", digits = 2) 
+
+#ACC_imageletter1a_GM = ACC_imageletter1a %>%
+#  summarise(
+#    GM_ACC = mean(ACC))
+#kable(ACC_imageletter1a_GM, caption = "ACC on image-and-letter trials", digits = 2) 
+
+
+# exeRT on image-and-letter trials in the 50%-image-alone condition
+# exclude prepRT and exeRT outliers as well as incorrect trials and image-alone trials
+# calculate mean exeRT
+RT_imageletter1a = input_Exp1a %>%
+  filter(letter_block == "1") %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(correct == "TRUE") %>%
+  group_by(participant) %>%
+  summarise(
+    RT = mean(rt))
+
+RT_imageletter1a_forpaper = RT_imageletter1a %>%
+  summarise(mean.RT = mean(RT, na.rm = TRUE),
+            sd.RT = sd(RT, na.rm = TRUE),
+            n.RT = n()) %>%
+  mutate(se.RT = sd.RT / sqrt(n.RT),
+         lower.ci.RT = mean.RT - qt(1 - (0.05 / 2), n.RT - 1) * se.RT,
+         upper.ci.RT = mean.RT + qt(1 - (0.05 / 2), n.RT - 1) * se.RT)
+kable(RT_imageletter1a_forpaper, caption = "ExeRT on image-and-letter trials", digits = 2) 
+
+#RT_imageletter1a_GM = RT_imageletter1a %>%
+#  summarise(
+#    GM_RT = mean(RT))
+#kable(RT_imageletter1a_GM, caption = "ExeRT on image-and-letter trials", digits = 2) 
+```
+
+
+\newpage 
+#### Pair-split analysis
+```{r Exp 1a pair-split analysis, warning=FALSE, message=FALSE, echo=FALSE}
+input_pairsplit_Exp1a = input_Exp1a %>% 
+  filter(block_type == "100%") %>%
+  filter(letter_block == "0") %>%
+  arrange(participant, block_number) %>% 
+  mutate(pair = ceiling(block_number/2)) %>% # create pair number based on block number; block 1 and 2 will be pair 1, etc.
+  group_by(participant, pair) %>%
+  mutate(n_block_in_pair = n(), # count number of blocks in a pair; due to missing data, some 'pair's have only one block
+         Pair_PrepRT = mean(prepRT), # calculate the mean prepRT of each pair
+         fasterPreparation = (prepRT < Pair_PrepRT), # determine whether each block is the one with shorter prepRT in the pair
+         diff = prepRT - Pair_PrepRT) %>% # calculate the difference between raw prepRT and the average of each pair 
+  filter(n_block_in_pair == 2, # select only pairs that have two blocks
+         diff != 0) # select pairs where the prepRT of the two blocks differ 
+
+
+# check: each participant should have equal number of faster and slower blocks
+#table(input_pairsplit_Exp1a$participant, input_pairsplit_Exp1a$fasterPreparation)
+
+
+# calculate mean prepRT depending on pair-split
+prepRT_pairsplit1a = input_pairsplit_Exp1a %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(prepRT = mean(prepRT)) 
+
+
+prepRT_pairsplit1a_GM = prepRT_pairsplit1a %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    prepRT = mean(prepRT))
+kable(prepRT_pairsplit1a_GM, caption = "PrepRT for fast vs slow preparation", digits = 2) 
+
+
+# calculate CIs for paper
+prepRT_pairsplit1a_forpaper = prepRT_pairsplit1a %>%
+  group_by(fasterPreparation) %>%
+  summarise(mean.prepRT = mean(prepRT, na.rm = TRUE),
+            sd.prepRT = sd(prepRT, na.rm = TRUE),
+            n.prepRT = n()) %>%
+  mutate(se.prepRT = sd.prepRT / sqrt(n.prepRT),
+         lower.ci.prepRT = mean.prepRT - qt(1 - (0.05 / 2), n.prepRT - 1) * se.prepRT,
+         upper.ci.prepRT = mean.prepRT + qt(1 - (0.05 / 2), n.prepRT - 1) * se.prepRT)
+kable(prepRT_pairsplit1a_forpaper, caption = "PrepRT depending on fast vs slow preparation", digits = 2) 
+
+
+# calculate mean ACC depending on pair-split
+ACC_pairsplit1a = input_pairsplit_Exp1a %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(ACC = mean(acc))
+
+ACC_pairsplit1a_GM = ACC_pairsplit1a %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    ACC = mean(ACC))
+kable(ACC_pairsplit1a_GM, caption = "ACC depending on fast vs slow preparation", digits = 2) 
+
+
+# calculate CIs for paper
+ACC_pairsplit1a_forpaper = ACC_pairsplit1a %>%
+  group_by(fasterPreparation) %>%
+  summarise(mean.ACC = mean(ACC, na.rm = TRUE),
+            sd.ACC = sd(ACC, na.rm = TRUE),
+            n.ACC = n()) %>%
+  mutate(se.ACC = sd.ACC / sqrt(n.ACC),
+         lower.ci.ACC = mean.ACC - qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC,
+         upper.ci.ACC = mean.ACC + qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC)
+kable(ACC_pairsplit1a_forpaper, caption = "ACC depending on fast vs slow preparation", digits = 2) 
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+ACC_pairsplit1a_wide = ACC_pairsplit1a %>%
+  dcast(participant ~fasterPreparation, value.var = "ACC")
+
+ACC_pairsplit1a_pw = TES(ACC_pairsplit1a_wide$`FALSE`, ACC_pairsplit1a_wide$`TRUE`, paired=TRUE)
+
+row.names(ACC_pairsplit1a_pw) = c('ACC')
+kable(ACC_pairsplit1a_pw, caption = "Paired-samples t-test on ACC", digits = 2) 
+
+
+# calculate mean exeRT depending on pair-split
+RT_pairsplit1a = input_pairsplit_Exp1a %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(correct == "TRUE") %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(RT = mean(rt))
+
+RT_pairsplit1a_GM = RT_pairsplit1a %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    RT = mean(RT))
+kable(RT_pairsplit1a_GM, caption = "ExeRT depending on fast vs slow preparation", digits = 2) 
+
+
+# calculate CIs for paper
+RT_pairsplit1a_forpaper = RT_pairsplit1a %>%
+  group_by(fasterPreparation) %>%
+  summarise(mean.RT = mean(RT, na.rm = TRUE),
+            sd.RT = sd(RT, na.rm = TRUE),
+            n.RT = n()) %>%
+  mutate(se.RT = sd.RT / sqrt(n.RT),
+         lower.ci.RT = mean.RT - qt(1 - (0.05 / 2), n.RT - 1) * se.RT,
+         upper.ci.RT = mean.RT + qt(1 - (0.05 / 2), n.RT - 1) * se.RT)
+kable(RT_pairsplit1a_forpaper, caption = "ExeRT depending on fast vs slow preparation", digits = 2) 
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+RT_pairsplit1a_wide = RT_pairsplit1a %>%
+  dcast(participant ~fasterPreparation, value.var = "RT")
+
+RT_pairsplit1a_pw = TES(RT_pairsplit1a_wide$`FALSE`, RT_pairsplit1a_wide$`TRUE`, paired=TRUE)
+
+row.names(RT_pairsplit1a_pw) = c('RT')
+kable(RT_pairsplit1a_pw, caption = "Paired-samples t-test on exeRT", digits = 2) 
+```
+
+
+```{r Exp 1a UPPSP, warning=FALSE, message=FALSE, echo=FALSE}
+# check that each participant has 20 UPPSP responses
+p_no_uppsp = table(UPPSP_Exp1a$participant)
+#p_no_uppsp
+
+# calculate UPPSP score for each participant for each factor
+# perseverance
+UPPSP_Exp1a_perseverance = UPPSP_Exp1a %>%
+  filter(factor == "Perseverance")
+
+UPPSP_Exp1a_perseverance$resp = as.numeric(as.character(UPPSP_Exp1a_perseverance$resp))
+
+UPPSP_Exp1a_perseverance_score = UPPSP_Exp1a_perseverance %>%
+  group_by(participant) %>%
+  summarise(Perseverance_Score = mean(resp))
+
+
+# premeditation
+UPPSP_Exp1a_premeditation = UPPSP_Exp1a %>%
+  filter(factor == "Premeditation")
+
+UPPSP_Exp1a_premeditation$resp = as.numeric(as.character(UPPSP_Exp1a_premeditation$resp))
+
+UPPSP_Exp1a_premeditation_score = UPPSP_Exp1a_premeditation %>%
+  group_by(participant) %>%
+  summarise(Premeditation_Score = mean(resp))
+
+
+# positive urgency
+UPPSP_Exp1a_posurgency = UPPSP_Exp1a %>%
+  filter(factor == "Positive Urgency")
+
+UPPSP_Exp1a_posurgency$resp = as.numeric(as.character(UPPSP_Exp1a_posurgency$resp))
+
+UPPSP_Exp1a_posurgency_score = UPPSP_Exp1a_posurgency %>%
+  group_by(participant) %>%
+  summarise(PosUrgency_Score = mean(resp))
+
+
+# negative urgency
+UPPSP_Exp1a_negurgency = UPPSP_Exp1a %>%
+  filter(factor == "Negative Urgency")
+
+UPPSP_Exp1a_negurgency$resp = as.numeric(as.character(UPPSP_Exp1a_negurgency$resp))
+
+UPPSP_Exp1a_negurgency_score = UPPSP_Exp1a_negurgency %>%
+  group_by(participant) %>%
+  summarise(NegUrgency_Score = mean(resp))
+
+
+# sensation seeking
+UPPSP_Exp1a_senseek = UPPSP_Exp1a %>%
+  filter(factor == "Sensation Seeking")
+
+UPPSP_Exp1a_senseek$resp = as.numeric(as.character(UPPSP_Exp1a_senseek$resp))
+
+UPPSP_Exp1a_senseek_score = UPPSP_Exp1a_senseek %>%
+  group_by(participant) %>%
+  summarise(SenSeeking_Score = mean(resp))
+
+
+# combine all UPPSP factors and prepRT
+prepRT1a_cor$Perseverance_Score = UPPSP_Exp1a_perseverance_score$Perseverance_Score
+prepRT1a_cor$Premeditation_Score = UPPSP_Exp1a_premeditation_score$Premeditation_Score
+prepRT1a_cor$PosUrgency_Score = UPPSP_Exp1a_posurgency_score$PosUrgency_Score
+prepRT1a_cor$NegUrgency_Score = UPPSP_Exp1a_negurgency_score$NegUrgency_Score
+prepRT1a_cor$SenSeeking_Score = UPPSP_Exp1a_senseek_score$SenSeeking_Score
+
+
+# save as csv
+write.csv(prepRT1a_cor, 'Exp1a_prepRT_UPPSP', row.names = FALSE)
+```
+
+
+```{r load data Exp1b, warning=FALSE, echo=FALSE}
+# open files
+input_Exp1b = data.frame()
+
+files <- dir(path = "../../Data/Raw", pattern = "CIA_Preparation_Exp1b_*")
+
+for (i in files) {
+  
+  tmp <- read_csv(file = file.path("../../Data/Raw/", i), col_types = cols())
+  
+  # add the files to the data frame
+  input_Exp1b = rbind (input_Exp1b, tmp)
+  rm(tmp)
+}
+
+
+# select UPPSP data
+UPPSP_Exp1b = input_Exp1b %>%
+  filter(factor %in% c("Perseverance", "Premeditation", "Positive Urgency", "Negative Urgency", "Sensation Seeking"))
+
+
+# convert some factor variables to numeric variables
+input_Exp1b$block_number = as.numeric(as.character(input_Exp1b$block_number))
+input_Exp1b$prepRT = as.numeric(as.character(input_Exp1b$prepRT))
+input_Exp1b$rt = as.numeric(as.character(input_Exp1b$rt))
+
+
+# add numeric equivalent for correct variable; correct = TRUE = 1, correct = FALSE = 0
+input_Exp1b = input_Exp1b %>%
+  mutate(acc = correct)
+input_Exp1b$acc = as.integer(as.logical(input_Exp1b$acc)) 
+
+
+# filter UPPS data for the analysis
+input_Exp1b = input_Exp1b %>%
+  filter(block_number <= 96)
+
+
+# block_type: rename 1 to 25%-image-alone, rename 0 to 100%-image-alone
+input_Exp1b$block_type[input_Exp1b$block_type == "1"] = "25%"
+input_Exp1b$block_type[input_Exp1b$block_type == "0"] = "100%"
+
+
+# rename prolific_ID into participant
+names(input_Exp1b)[1] = "participant"
+
+
+# demographics
+demographics = input_Exp1b %>%
+  summarise(mean= mean(age), 
+            sd= sd(age), 
+            max = max(age),
+            min = min(age))
+
+
+gender = input_Exp1b %>%
+  filter(block_number == "1") %>%
+  group_by(gender) %>%
+  count()
+```
+
+
+\newpage 
+#### Experiment 1b
+#### PrepRT analysis depending on condition (i.e., 100%-image-alone vs 25%-image-alone)
+```{r Exp 1b prepRT analysis and plot, warning=FALSE, message=FALSE, echo=FALSE}
+# remove outliers and calculate prepRT depending on condition
+prepRT1b = input_Exp1b %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant, block_type) %>%
+  summarise(prepRT = mean(prepRT)) 
+
+
+prepRT1b_GM = prepRT1b %>%
+  group_by(block_type) %>%
+  summarise(
+    prepRT = mean(prepRT))
+kable(prepRT1b_GM, caption = "PrepRT depending on condition", digits = 2) 
+
+
+# calculate removed trials in %
+#100 - ((100/4800)*4749)
+
+
+# z transform prepRT
+prepRT1b_cor = input_Exp1b %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(block_type == '100%') %>%
+  group_by(participant) %>%
+  #mutate(prepRT_z = scale(prepRT, center = TRUE, scale = TRUE)) %>%
+  summarise(prepRT = mean(prepRT))
+
+
+# pairwise comparisons including NHST and Bayes t-tests for PrepRT depending on condition
+source("pairwise_comparisons.R") #pw
+
+prepRT1b_wide = prepRT1b %>%
+  dcast(participant ~ block_type, value.var = "prepRT")
+
+prepRT1b_wide_pw = TES(prepRT1b_wide$`100%`, prepRT1b_wide$`25%`, paired=TRUE) 
+
+row.names(prepRT1b_wide_pw) = c('PrepRT')
+kable(prepRT1b_wide_pw, caption = "Paired-samples t-test on PrepRT", digits = 2)
+
+
+# plot prepRT
+level_order = c('100%', '25%')
+
+plot_PrepRT1b = ggplot(prepRT1b, aes(x = factor(block_type, level = level_order), y = prepRT)) +
+  geom_line(aes(group = participant), colour = "grey") +
+  geom_point() +
+  geom_boxplot(colour = "black", fill="grey", alpha = 0, width=0.1) +
+  
+  scale_y_continuous(breaks = c(2000,4000,6000,8000,10000,12000), limits = c(2000,12000)) +
+  
+  stat_summary(fun.prepRT=mean, colour = "red", geom="line", aes(group=1))  + 
+  stat_summary(fun.prepRT=mean, colour = "red", geom="point") +
+  stat_summary(fun.data = mean_cl_normal, colour = "red", width = 0.1, geom = "errorbar") +
+  
+  xlab("Image-alone Condition") +
+  ylab("Preparation RT (ms)") + 
+      
+  ggtitle("Preparation depending on condition") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+    
+  theme(text = element_text(face = "plain", size = 14)) +
+  theme(axis.text = element_text(size = 14, color = "black")) +
+  theme(axis.title.x = element_text(face = "plain", size = 14)) +
+  theme(axis.title.x = element_text(margin = margin(t = 16, r = 0, b = 0, l = 00))) +
+  theme(axis.title.y = element_text(face = "plain", size = 14)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 16, b = 0, l = 0))) +
+  theme(axis.ticks = element_line(size = 1)) +
+    
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+plot_PrepRT1b
+#ggsave("plot_PrepRT1b.png", width = 24, height = 16, units = "cm")
+
+
+# run pair analysis
+sequentialRun1b = input_Exp1b %>%
+  group_by(participant, block_number) %>%
+  mutate(run = 99)
+
+sequentialRun1b$run[sequentialRun1b$block_number <= 32] <- 1
+sequentialRun1b$run[sequentialRun1b$block_number >= 33 & sequentialRun1b$block_number <= 64] <- 2
+sequentialRun1b$run[sequentialRun1b$block_number >= 65 & sequentialRun1b$block_number <= 96] <- 3
+  
+# analyze PrepRT depending on run and block_type 
+sequentialRun1b_prepRT = sequentialRun1b %>%  
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant, run, block_type) %>%
+  summarise(prepRT = mean(prepRT)) 
+
+GM_sequentialRun1b_prepRT = sequentialRun1b_prepRT %>%
+  group_by(run, block_type) %>%
+  summarise(
+    prepRT = mean(prepRT))
+kable(GM_sequentialRun1b_prepRT, caption = "PrepRT depending on run and block_type", digits = 2) 
+
+
+# stats run pair analysis
+source("pairwise_comparisons.R")
+
+# run 1
+sequentialRun1b_prepRT_run1 = sequentialRun1b_prepRT %>%
+  filter(run == 1)
+
+sequentialRun1b_prepRT_run1_wide = sequentialRun1b_prepRT_run1 %>%
+  dcast(participant ~ block_type, value.var = "prepRT")
+prepRT1b_run1 = TES(sequentialRun1b_prepRT_run1_wide$'100%', sequentialRun1b_prepRT_run1_wide$'25%', paired=TRUE)
+
+# run 2
+sequentialRun1b_prepRT_run2 = sequentialRun1b_prepRT %>%
+  filter(run == 2)
+
+sequentialRun1b_prepRT_run2_wide = sequentialRun1b_prepRT_run2 %>%
+  dcast(participant ~ block_type, value.var = "prepRT")
+prepRT1b_run2 = TES(sequentialRun1b_prepRT_run2_wide$'100%', sequentialRun1b_prepRT_run2_wide$'25%', paired=TRUE)
+
+# run 3
+sequentialRun1b_prepRT_run3 = sequentialRun1b_prepRT %>%
+  filter(run == 3)
+
+sequentialRun1b_prepRT_run3_wide = sequentialRun1b_prepRT_run3 %>%
+  dcast(participant ~ block_type, value.var = "prepRT")
+prepRT1b_run3 = TES(sequentialRun1b_prepRT_run3_wide$'100%', sequentialRun1b_prepRT_run3_wide$'25%', paired=TRUE)
+
+# putting all runs together
+output_prepRT1b_runs = rbind(prepRT1b_run1, prepRT1b_run2, prepRT1b_run3)
+row.names(output_prepRT1b_runs) = c('prepRT_1b_run1', 'prepRT_1b_run2', 'prepRT_1b_run3')
+kable(output_prepRT1b_runs, caption = "Pairwise Comparisons for each run between block types for PrepRT", digits = 2)
+``` 
+
+
+\newpage 
+#### Performance on image-alone trials depending on condition (i.e., 100%-image-alone vs 25%-image-alone)
+```{r Exp 1b ACC and exeRT image-alone trials, warning=FALSE, message=FALSE, echo=FALSE}
+# ACC
+# exclude prepRT and exeRT outliers and image-and-letter trials
+# calculate mean ACC
+ACC_imageonly1b = input_Exp1b %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(letter_block == 0) %>%
+  group_by(participant, block_type) %>%
+  summarise(ACC = mean(acc))
+
+ACC_imageonly1b_GM = ACC_imageonly1b %>%
+  group_by(block_type) %>%
+  summarise(
+    ACC = mean(ACC))
+kable(ACC_imageonly1b_GM, caption = "ACC on image-alone trials depending on condition", digits = 2) 
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+ACC_imageonly1b_wide = ACC_imageonly1b %>%
+  dcast(participant ~ block_type, value.var = "ACC")
+
+ACC_imageonly1b_pw = TES(ACC_imageonly1b_wide$`100%`, ACC_imageonly1b_wide$`25%`, paired=TRUE)
+
+row.names(ACC_imageonly1b_pw) = c('ACC')
+kable(ACC_imageonly1b_pw, caption = "Paired-samples t-test on ACC", digits = 2) 
+
+
+# Correct exeRT
+# exclude prepRT and exeRT outliers as well as incorrect trials and image-and-letter trials
+# calculate mean exeRT
+RT_imageonly1b = input_Exp1b %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(correct == "TRUE") %>%
+  filter(letter_block == 0) %>%
+  group_by(participant, block_type) %>%
+  summarise(RT = mean(rt))
+
+RT_imageonly1b_GM = RT_imageonly1b %>%
+  group_by(block_type) %>%
+  summarise(
+    RT = mean(RT))
+kable(RT_imageonly1b_GM, caption = "ExeRT on image-alone trials depending on condition", digits = 2) 
+
+
+# calculate removed trials (i.e., incorrect trials) in %
+#100 - ((100/4749)*4233)
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+RT_imageonly1b_wide = RT_imageonly1b %>%
+  dcast(participant ~ block_type, value.var = "RT")
+
+RT_imageonly1b_pw = TES(RT_imageonly1b_wide$`100%`, RT_imageonly1b_wide$`25%`, paired=TRUE)
+
+row.names(RT_imageonly1b_pw) = c('ExeRT')
+kable(RT_imageonly1b_pw, caption = "Paired-samples t-test on exeRT", digits = 2) 
+```
+
+
+\newpage 
+#### Performance on image-and-letter trials
+```{r Exp 1b image-and-letter trials, warning=FALSE, message=FALSE, echo=FALSE}
+# ACC on image-and-letter trials in the 25%-image-alone condition
+# exclude prepRT and exeRT outliers and image-alone trials
+# calculate mean ACC
+ACC_imageletter1b = input_Exp1b %>%
+  filter(letter_block == "1") %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant) %>%
+  summarise(
+    ACC = mean(acc))
+
+ACC_imageletter1b_forpaper = ACC_imageletter1b %>%
+  summarise(mean.ACC = mean(ACC, na.rm = TRUE),
+            sd.ACC = sd(ACC, na.rm = TRUE),
+            n.ACC = n()) %>%
+  mutate(se.ACC = sd.ACC / sqrt(n.ACC),
+         lower.ci.ACC = mean.ACC - qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC,
+         upper.ci.ACC = mean.ACC + qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC)
+kable(ACC_imageletter1b_forpaper, caption = "ACC on image-and-letter trials", digits = 2) 
+
+#ACC_imageletter1b_GM = ACC_imageletter1b %>%
+#  summarise(
+#    GM_ACC = mean(ACC))
+#kable(ACC_imageletter1b_GM, caption = "ACC on image-and-letter trials", digits = 2) 
+
+
+# exeRT on image-and-letter trials in the 25%-image-alone condition
+# exclude prepRT and exeRT outliers as well as incorrect trials and image-alone trials
+# calculate mean exeRT
+RT_imageletter1b = input_Exp1b %>%
+  filter(letter_block == "1") %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(correct == "TRUE") %>%
+  group_by(participant) %>%
+  summarise(
+    RT = mean(rt))
+
+RT_imageletter1b_forpaper = RT_imageletter1b %>%
+  summarise(mean.RT = mean(RT, na.rm = TRUE),
+            sd.RT = sd(RT, na.rm = TRUE),
+            n.RT = n()) %>%
+  mutate(se.RT = sd.RT / sqrt(n.RT),
+         lower.ci.RT = mean.RT - qt(1 - (0.05 / 2), n.RT - 1) * se.RT,
+         upper.ci.RT = mean.RT + qt(1 - (0.05 / 2), n.RT - 1) * se.RT)
+kable(RT_imageletter1b_forpaper, caption = "RT on image-and-letter trials", digits = 2) 
+
+#RT_imageletter1b_GM = RT_imageletter1b %>%
+#  summarise(
+#    GM_RT = mean(RT))
+#kable(RT_imageletter1b_GM, caption = "ExeRT on image-and-letter trials", digits = 2) 
+```
+
+
+\newpage 
+#### Pair-split analysis
+```{r Exp 1b pair-split analysis, warning=FALSE, message=FALSE, echo=FALSE}
+input_pairsplit_Exp1b = input_Exp1b %>% 
+  filter(block_type == "100%") %>%
+  filter(letter_block == "0") %>%
+  arrange(participant, block_number) %>% 
+  mutate(pair = ceiling(block_number/2)) %>% # create pair number based on block number; block 1 and 2 will be pair 1, etc.
+  group_by(participant, pair) %>%
+  mutate(n_block_in_pair = n(), # count number of blocks in a pair; due to missing data, some 'pair's have only one block
+         Pair_PrepRT = mean(prepRT), # calculate the mean prepRT of each pair
+         fasterPreparation = (prepRT < Pair_PrepRT), # determine whether each block is the one with shorter prepRT in the pair
+         diff = prepRT - Pair_PrepRT) %>% # calculate the difference between raw prepRT and the average of each pair 
+  filter(n_block_in_pair == 2, # select only pairs that have two blocks
+         diff != 0) # select pairs where the prepRT of the two blocks differ 
+
+
+# check: each participant should have equal number of faster and slower blocks
+#table(input_pairsplit_Exp1b$participant, input_pairsplit_Exp1b$fasterPreparation)
+
+
+# calculate mean prepRT depending on pair-split
+prepRT_pairsplit1b = input_pairsplit_Exp1b %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(prepRT = mean(prepRT)) 
+
+
+prepRT_pairsplit1b_GM = prepRT_pairsplit1b %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    prepRT = mean(prepRT))
+kable(prepRT_pairsplit1b_GM, caption = "PrepRT for fast vs slow preparation", digits = 2) 
+
+
+# calculate CIs for paper
+prepRT_pairsplit1b_forpaper = prepRT_pairsplit1b %>%
+  group_by(fasterPreparation) %>%
+  summarise(mean.prepRT = mean(prepRT, na.rm = TRUE),
+            sd.prepRT = sd(prepRT, na.rm = TRUE),
+            n.prepRT = n()) %>%
+  mutate(se.prepRT = sd.prepRT / sqrt(n.prepRT),
+         lower.ci.prepRT = mean.prepRT - qt(1 - (0.05 / 2), n.prepRT - 1) * se.prepRT,
+         upper.ci.prepRT = mean.prepRT + qt(1 - (0.05 / 2), n.prepRT - 1) * se.prepRT)
+kable(prepRT_pairsplit1b_forpaper, caption = "PrepRT depending on fast vs slow preparation", digits = 2) 
+
+
+# calculate mean ACC depending on pair-split
+ACC_pairsplit1b = input_pairsplit_Exp1b %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(ACC = mean(acc))
+
+ACC_pairsplit1b_GM = ACC_pairsplit1b %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    ACC = mean(ACC))
+kable(ACC_pairsplit1b_GM, caption = "ACC depending on fast vs slow preparation", digits = 2) 
+
+
+# calculate CIs for paper
+ACC_pairsplit1b_forpaper = ACC_pairsplit1b %>%
+  group_by(fasterPreparation) %>%
+  summarise(mean.ACC = mean(ACC, na.rm = TRUE),
+            sd.ACC = sd(ACC, na.rm = TRUE),
+            n.ACC = n()) %>%
+  mutate(se.ACC = sd.ACC / sqrt(n.ACC),
+         lower.ci.ACC = mean.ACC - qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC,
+         upper.ci.ACC = mean.ACC + qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC)
+kable(ACC_pairsplit1b_forpaper, caption = "ACC depending on fast vs slow preparation", digits = 2) 
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+ACC_pairsplit1b_wide = ACC_pairsplit1b %>%
+  dcast(participant ~fasterPreparation, value.var = "ACC")
+
+ACC_pairsplit1b_pw = TES(ACC_pairsplit1b_wide$`FALSE`, ACC_pairsplit1b_wide$`TRUE`, paired=TRUE)
+
+row.names(ACC_pairsplit1b_pw) = c('ACC')
+kable(ACC_pairsplit1b_pw, caption = "Paired-samples t-test on ACC", digits = 2) 
+
+
+# calculate mean exeRT depending on pair-split
+RT_pairsplit1b = input_pairsplit_Exp1b %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(correct == "TRUE") %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(RT = mean(rt))
+
+RT_pairsplit1b_GM = RT_pairsplit1b %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    RT = mean(RT))
+kable(RT_pairsplit1b_GM, caption = "ExeRT depending on fast vs slow preparation", digits = 2) 
+
+
+# calculate CIs for paper
+RT_pairsplit1b_forpaper = RT_pairsplit1b %>%
+  group_by(fasterPreparation) %>%
+  summarise(mean.RT = mean(RT, na.rm = TRUE),
+            sd.RT = sd(RT, na.rm = TRUE),
+            n.RT = n()) %>%
+  mutate(se.RT = sd.RT / sqrt(n.RT),
+         lower.ci.RT = mean.RT - qt(1 - (0.05 / 2), n.RT - 1) * se.RT,
+         upper.ci.RT = mean.RT + qt(1 - (0.05 / 2), n.RT - 1) * se.RT)
+kable(RT_pairsplit1b_forpaper, caption = "ExeRT depending on fast vs slow preparation", digits = 2) 
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+RT_pairsplit1b_wide = RT_pairsplit1b %>%
+  dcast(participant ~fasterPreparation, value.var = "RT")
+
+RT_pairsplit1b_pw = TES(RT_pairsplit1b_wide$`FALSE`, RT_pairsplit1b_wide$`TRUE`, paired=TRUE)
+
+row.names(RT_pairsplit1b_pw) = c('RT')
+kable(RT_pairsplit1b_pw, caption = "Paired-samples t-test on exeRT", digits = 2) 
+```
+
+
+
+```{r Exp 1b UPPSP, warning=FALSE, message=FALSE, echo=FALSE}
+# check that each participant has 20 UPPSP responses
+p_no_uppsp = table(UPPSP_Exp1b$participant)
+#p_no_uppsp
+
+# calculate UPPSP score for each participant for each factor
+# perseverance
+UPPSP_Exp1b_perseverance = UPPSP_Exp1b %>%
+  filter(factor == "Perseverance")
+
+UPPSP_Exp1b_perseverance$resp = as.numeric(as.character(UPPSP_Exp1b_perseverance$resp))
+
+UPPSP_Exp1b_perseverance_score = UPPSP_Exp1b_perseverance %>%
+  group_by(participant) %>%
+  summarise(Perseverance_Score = mean(resp))
+
+
+# premeditation
+UPPSP_Exp1b_premeditation = UPPSP_Exp1b %>%
+  filter(factor == "Premeditation")
+
+UPPSP_Exp1b_premeditation$resp = as.numeric(as.character(UPPSP_Exp1b_premeditation$resp))
+
+UPPSP_Exp1b_premeditation_score = UPPSP_Exp1b_premeditation %>%
+  group_by(participant) %>%
+  summarise(Premeditation_Score = mean(resp))
+
+
+# positive urgency
+UPPSP_Exp1b_posurgency = UPPSP_Exp1b %>%
+  filter(factor == "Positive Urgency")
+
+UPPSP_Exp1b_posurgency$resp = as.numeric(as.character(UPPSP_Exp1b_posurgency$resp))
+
+UPPSP_Exp1b_posurgency_score = UPPSP_Exp1b_posurgency %>%
+  group_by(participant) %>%
+  summarise(PosUrgency_Score = mean(resp))
+
+
+# negative urgency
+UPPSP_Exp1b_negurgency = UPPSP_Exp1b %>%
+  filter(factor == "Negative Urgency")
+
+UPPSP_Exp1b_negurgency$resp = as.numeric(as.character(UPPSP_Exp1b_negurgency$resp))
+
+UPPSP_Exp1b_negurgency_score = UPPSP_Exp1b_negurgency %>%
+  group_by(participant) %>%
+  summarise(NegUrgency_Score = mean(resp))
+
+
+# sensation seeking
+UPPSP_Exp1b_senseek = UPPSP_Exp1b %>%
+  filter(factor == "Sensation Seeking")
+
+UPPSP_Exp1b_senseek$resp = as.numeric(as.character(UPPSP_Exp1b_senseek$resp))
+
+UPPSP_Exp1b_senseek_score = UPPSP_Exp1b_senseek %>%
+  group_by(participant) %>%
+  summarise(SenSeeking_Score = mean(resp))
+
+
+# combine all UPPSP factors and prepRT
+prepRT1b_cor$Perseverance_Score = UPPSP_Exp1b_perseverance_score$Perseverance_Score
+prepRT1b_cor$Premeditation_Score = UPPSP_Exp1b_premeditation_score$Premeditation_Score
+prepRT1b_cor$PosUrgency_Score = UPPSP_Exp1b_posurgency_score$PosUrgency_Score
+prepRT1b_cor$NegUrgency_Score = UPPSP_Exp1b_negurgency_score$NegUrgency_Score
+prepRT1b_cor$SenSeeking_Score = UPPSP_Exp1b_senseek_score$SenSeeking_Score
+
+
+# save as csv
+write.csv(prepRT1b_cor, 'Exp1b_prepRT_UPPSP', row.names = FALSE)
+```
+
+
+\newpage
+### Plots for paper 
+```{r plots paper, warning=FALSE, message=FALSE, echo=FALSE}
+##### Experiments 1a and 1b, rename conditions
+# block_type: rename 1 to 25%, rename 0 to 100%-image-alone
+# letter_block: rename 0 to image-alone, rename 1 to image-and-letter
+input_Exp1a$block_type[input_Exp1a$block_type == "1"] = "50%"
+input_Exp1a$block_type[input_Exp1a$block_type == "0"] = "100%"
+input_Exp1a$letter_block[input_Exp1a$letter_block == "0"] = "image-alone"
+input_Exp1a$letter_block[input_Exp1a$letter_block == "1"] = "image-and-letter"
+
+input_Exp1b$block_type[input_Exp1b$block_type == "1"] = "25%"
+input_Exp1b$block_type[input_Exp1b$block_type == "0"] = "100%"
+input_Exp1b$letter_block[input_Exp1b$letter_block == "0"] = "image-alone"
+input_Exp1b$letter_block[input_Exp1b$letter_block == "1"] = "image-and-letter"
+
+
+###### Experiment 1a (in paper, it is called Experiment 2a)
+# prepRT
+prepRT1a = input_Exp1a %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant, block_type) %>%
+  summarise(prepRT = mean(prepRT)) 
+
+
+prepRT1a_forplot = prepRT1a %>%
+  group_by(block_type) %>%
+  summarise(mean.prepRT = mean(prepRT, na.rm = TRUE),
+            sd.prepRT = sd(prepRT, na.rm = TRUE),
+            n.prepRT = n()) %>%
+  mutate(se.prepRT = sd.prepRT / sqrt(n.prepRT),
+         lower.ci.prepRT = mean.prepRT - qt(1 - (0.05 / 2), n.prepRT - 1) * se.prepRT,
+         upper.ci.prepRT = mean.prepRT + qt(1 - (0.05 / 2), n.prepRT - 1) * se.prepRT)
+
+
+level_order_prepRT = c("100%", "50%")
+
+# plot 
+plot_prepRT1a_p = ggplot(prepRT1a_forplot, aes(x=factor(block_type, level = level_order_prepRT), y=mean.prepRT, group=1)) +
+  geom_errorbar(aes(ymin=lower.ci.prepRT, ymax=upper.ci.prepRT), width=.1, color="black", position="dodge") +
+  geom_line(color="black", width=2) +
+  geom_point(color="black", position="dodge", shape=17) +
+  
+  scale_y_continuous(breaks = c(1000,2000,3000,4000,5000,6000), limits = c(1000,6000)) +
+  
+  xlab("Image-alone Condition") +
+  ylab("Preparation RT (ms)") + 
+  
+  ggtitle("Experiment 2a", subtitle = "Preparation phase") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5)) + 
+    
+  theme(text = element_text(face = "plain", size = 8)) +
+  theme(axis.text.y = element_text(size = 8, color = "black")) +
+  theme(axis.text.x = element_text(size = 8, color = "black", angle = 0, hjust = 0.5)) +
+  theme(axis.title.x = element_text(face = "plain", size = 8)) +
+  theme(axis.title.x = element_text(margin = margin(t = 4, r = 0, b = 0, l = 00))) +
+  theme(axis.title.y = element_text(face = "plain", size = 8)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 4, b = 0, l = 0))) +
+  theme(axis.ticks = element_line(size = 1)) +
+  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black"))
+  
+#plot_prepRT1a_p
+
+
+# ACC
+ACC1a = input_Exp1a %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant, block_type, letter_block) %>%
+  summarise(ACC = mean(acc))
+
+ACC1a_forplot = ACC1a %>%
+  group_by(block_type, letter_block) %>%
+  summarise(mean.ACC = mean(ACC, na.rm = TRUE),
+            sd.ACC = sd(ACC, na.rm = TRUE),
+            n.ACC = n()) %>%
+  mutate(se.ACC = sd.ACC / sqrt(n.ACC),
+         lower.ci.ACC = mean.ACC - qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC,
+         upper.ci.ACC = mean.ACC + qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC)
+
+
+level_order_ACC = c("100%", "50%")
+
+# plot 
+plot_ACC1a_p = ggplot(ACC1a_forplot, aes(x=factor(block_type, level = level_order_ACC), y=mean.ACC, group=letter_block)) +
+  geom_errorbar(aes(ymin=lower.ci.ACC, ymax=upper.ci.ACC), width=.1, color=c("black","black","grey50")) +
+  geom_line(aes(color=c("image-alone trials","image-alone trials","image-and-letter trials")), width=2) +
+  geom_point(aes(color=c("image-alone trials","image-alone trials","image-and-letter trials")), shape=c(16,16,15)) +
+  
+  scale_colour_manual(values=c("black","grey50","grey50")) +
+  
+  scale_y_continuous(breaks = c(0.6,0.7,0.8,0.9,1.0), limits = c(0.6,1)) +
+  
+  xlab("Image-alone Condition") +
+  ylab("Accuracy") + 
+  
+  ggtitle("Experiment 2a", subtitle = "Execution phase") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5)) + 
+    
+  theme(text = element_text(face = "plain", size = 8)) +
+  theme(axis.text.y = element_text(size = 8, color = "black")) +
+  theme(axis.text.x = element_text(size = 8, color = "black", angle = 0, hjust = 0.5)) +
+  theme(axis.title.x = element_text(face = "plain", size = 8)) +
+  theme(axis.title.x = element_text(margin = margin(t = 4, r = 0, b = 0, l = 00))) +
+  theme(axis.title.y = element_text(face = "plain", size = 8)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 4, b = 0, l = 0))) +
+  theme(axis.ticks = element_line(size = 1)) +
+  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  
+  theme(legend.title = element_blank(),
+        legend.text = element_text(size=8),
+        legend.key = element_rect(fill = "white")) +
+  theme(legend.background = element_rect()) + 
+  theme(legend.justification=c(1,0), legend.position=c(0.92,0.02)) +
+  
+  guides(colour = guide_legend(override.aes = list(shape=c(16,15))))
+
+#plot_ACC1a_p
+
+
+# ExeRT
+RT1a = input_Exp1a %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(correct == "TRUE") %>%
+  group_by(participant, block_type, letter_block) %>%
+  summarise(RT = mean(rt))
+
+RT1a_forplot = RT1a %>%
+  group_by(block_type, letter_block) %>%
+  summarise(mean.RT = mean(RT, na.rm = TRUE),
+            sd.RT = sd(RT, na.rm = TRUE),
+            n.RT = n()) %>%
+  mutate(se.RT = sd.RT / sqrt(n.RT),
+         lower.ci.RT = mean.RT - qt(1 - (0.05 / 2), n.RT - 1) * se.RT,
+         upper.ci.RT = mean.RT + qt(1 - (0.05 / 2), n.RT - 1) * se.RT)
+
+
+level_order_RT = c("100%", "50%")
+
+# plot 
+plot_RT1a_p = ggplot(RT1a_forplot, aes(x=factor(block_type, level = level_order_RT), y=mean.RT, group=letter_block)) +
+  geom_errorbar(aes(ymin=lower.ci.RT, ymax=upper.ci.RT), width=.1, color=c("black","black","grey50")) +
+  geom_line(aes(color=c("image-alone trials","image-alone trials","image-and-letter trials")), width=2) +
+  geom_point(aes(color=c("image-alone trials","image-alone trials","image-and-letter trials")), shape=c(16,16,15)) +
+  
+  scale_colour_manual(values=c("black","grey50","grey50")) +
+  
+  scale_y_continuous(breaks = c(200,400,600,800,1000,1200), limits = c(0,1200)) +
+  
+  xlab("Image-alone Condition") +
+  ylab("Execution RT (ms)") + 
+  
+  ggtitle("Experiment 2a", subtitle = "Execution phase") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5)) + 
+    
+  theme(text = element_text(face = "plain", size = 8)) +
+  theme(axis.text.y = element_text(size = 8, color = "black")) +
+  theme(axis.text.x = element_text(size = 8, color = "black", angle = 0, hjust = 0.5)) +
+  theme(axis.title.x = element_text(face = "plain", size = 8)) +
+  theme(axis.title.x = element_text(margin = margin(t = 4, r = 0, b = 0, l = 00))) +
+  theme(axis.title.y = element_text(face = "plain", size = 8)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 4, b = 0, l = 0))) +
+  theme(axis.ticks = element_line(size = 1)) +
+  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  
+  theme(legend.title = element_blank(),
+        legend.text = element_text(size=8),
+        legend.key = element_rect(fill = "white")) +
+  theme(legend.background = element_rect()) + 
+  theme(legend.justification=c(1,0), legend.position=c(0.92,0.02)) +
+  
+  guides(colour = guide_legend(override.aes = list(shape=c(16,15))))
+
+#plot_RT1a_p
+
+
+# combine all plots
+bigplot_PrepRTACCExeRT2a <- plot_grid(plot_prepRT1a_p, plot_ACC1a_p, plot_RT1a_p,
+ ncol = 3,
+ rel_heights = c(1,1,1),
+ rel_widths = c(1,1,1),
+ labels = c("A","B","C"),
+ label_size = 12,
+ align = "v"
+)
+bigplot_PrepRTACCExeRT2a
+
+#ggsave("Experiment2a_PrepRTACCExeRT.png", width = 14, height = 6, units = "cm")
+
+
+###### Experiment 1b (in paper, it is called Experiment 2b)
+# prepRT
+prepRT1b = input_Exp1b %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant, block_type) %>%
+  summarise(prepRT = mean(prepRT)) 
+
+
+prepRT1b_forplot = prepRT1b %>%
+  group_by(block_type) %>%
+  summarise(mean.prepRT = mean(prepRT, na.rm = TRUE),
+            sd.prepRT = sd(prepRT, na.rm = TRUE),
+            n.prepRT = n()) %>%
+  mutate(se.prepRT = sd.prepRT / sqrt(n.prepRT),
+         lower.ci.prepRT = mean.prepRT - qt(1 - (0.05 / 2), n.prepRT - 1) * se.prepRT,
+         upper.ci.prepRT = mean.prepRT + qt(1 - (0.05 / 2), n.prepRT - 1) * se.prepRT)
+
+
+level_order_prepRT = c("100%", "25%")
+
+# plot 
+plot_prepRT1b_p = ggplot(prepRT1b_forplot, aes(x=factor(block_type, level = level_order_prepRT), y=mean.prepRT, group=1)) +
+  geom_errorbar(aes(ymin=lower.ci.prepRT, ymax=upper.ci.prepRT), width=.1, color="black", position="dodge") +
+  geom_line(color="black", width=2) +
+  geom_point(color="black", position="dodge", shape=17) +
+  
+  scale_y_continuous(breaks = c(1000,2000,3000,4000,5000,6000), limits = c(1000,6000)) +
+  
+  xlab("Image-alone Condition") +
+  ylab("Preparation RT (ms)") + 
+  
+  ggtitle("Experiment 2b", subtitle = "Preparation phase") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5)) + 
+    
+  theme(text = element_text(face = "plain", size = 8)) +
+  theme(axis.text.y = element_text(size = 8, color = "black")) +
+  theme(axis.text.x = element_text(size = 8, color = "black", angle = 0, hjust = 0.5)) +
+  theme(axis.title.x = element_text(face = "plain", size = 8)) +
+  theme(axis.title.x = element_text(margin = margin(t = 4, r = 0, b = 0, l = 00))) +
+  theme(axis.title.y = element_text(face = "plain", size = 8)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 4, b = 0, l = 0))) +
+  theme(axis.ticks = element_line(size = 1)) +
+  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black"))
+  
+#plot_prepRT1b_p
+
+
+# ACC
+ACC1b = input_Exp1b %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant, block_type, letter_block) %>%
+  summarise(ACC = mean(acc))
+
+ACC1b_forplot = ACC1b %>%
+  group_by(block_type, letter_block) %>%
+  summarise(mean.ACC = mean(ACC, na.rm = TRUE),
+            sd.ACC = sd(ACC, na.rm = TRUE),
+            n.ACC = n()) %>%
+  mutate(se.ACC = sd.ACC / sqrt(n.ACC),
+         lower.ci.ACC = mean.ACC - qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC,
+         upper.ci.ACC = mean.ACC + qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC)
+
+
+level_order_ACC = c("100%", "25%")
+
+# plot 
+plot_ACC1b_p = ggplot(ACC1b_forplot, aes(x=factor(block_type, level = level_order_ACC), y=mean.ACC, group=letter_block)) +
+  geom_errorbar(aes(ymin=lower.ci.ACC, ymax=upper.ci.ACC), width=.1, color=c("black","black","grey50")) +
+  geom_line(aes(color=c("image-alone trials","image-alone trials","image-and-letter trials")), width=2) +
+  geom_point(aes(color=c("image-alone trials","image-alone trials","image-and-letter trials")), shape=c(16,16,15)) +
+  
+  scale_colour_manual(values=c("black","grey50","grey50")) +
+  
+  scale_y_continuous(breaks = c(0.6,0.7,0.8,0.9,1.0), limits = c(0.6,1)) +
+  
+  xlab("Image-alone Condition") +
+  ylab("Accuracy") + 
+  
+  ggtitle("Experiment 2b", subtitle = "Execution phase") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5)) + 
+    
+  theme(text = element_text(face = "plain", size = 8)) +
+  theme(axis.text.y = element_text(size = 8, color = "black")) +
+  theme(axis.text.x = element_text(size = 8, color = "black", angle = 0, hjust = 0.5)) +
+  theme(axis.title.x = element_text(face = "plain", size = 8)) +
+  theme(axis.title.x = element_text(margin = margin(t = 4, r = 0, b = 0, l = 00))) +
+  theme(axis.title.y = element_text(face = "plain", size = 8)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 4, b = 0, l = 0))) +
+  theme(axis.ticks = element_line(size = 1)) +
+  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  
+  theme(legend.title = element_blank(),
+        legend.text = element_text(size=8),
+        legend.key = element_rect(fill = "white")) +
+  theme(legend.background = element_rect()) + 
+  theme(legend.justification=c(1,0), legend.position=c(0.92,0.02)) +
+  
+  guides(colour = guide_legend(override.aes = list(shape=c(16,15))))
+
+#plot_ACC1b_p
+
+
+# ExeRT
+RT1b = input_Exp1b %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(correct == "TRUE") %>%
+  group_by(participant, block_type, letter_block) %>%
+  summarise(RT = mean(rt))
+
+RT1b_forplot = RT1b %>%
+  group_by(block_type, letter_block) %>%
+  summarise(mean.RT = mean(RT, na.rm = TRUE),
+            sd.RT = sd(RT, na.rm = TRUE),
+            n.RT = n()) %>%
+  mutate(se.RT = sd.RT / sqrt(n.RT),
+         lower.ci.RT = mean.RT - qt(1 - (0.05 / 2), n.RT - 1) * se.RT,
+         upper.ci.RT = mean.RT + qt(1 - (0.05 / 2), n.RT - 1) * se.RT)
+
+
+level_order_RT = c("100%", "25%")
+
+# plot 
+plot_RT1b_p = ggplot(RT1b_forplot, aes(x=factor(block_type, level = level_order_RT), y=mean.RT, group=letter_block)) +
+  geom_errorbar(aes(ymin=lower.ci.RT, ymax=upper.ci.RT), width=.1, color=c("black","black","grey50")) +
+  geom_line(aes(color=c("image-alone trials","image-alone trials","image-and-letter trials")), width=2) +
+  geom_point(aes(color=c("image-alone trials","image-alone trials","image-and-letter trials")), shape=c(16,16,15)) +
+  
+  scale_colour_manual(values=c("black","grey50","grey50")) +
+  
+  scale_y_continuous(breaks = c(200,400,600,800,1000,1200), limits = c(0,1200)) +
+  
+  xlab("Image-alone Condition") +
+  ylab("Execution RT (ms)") + 
+  
+  ggtitle("Experiment 2b", subtitle = "Execution phase") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5)) + 
+    
+  theme(text = element_text(face = "plain", size = 8)) +
+  theme(axis.text.y = element_text(size = 8, color = "black")) +
+  theme(axis.text.x = element_text(size = 8, color = "black", angle = 0, hjust = 0.5)) +
+  theme(axis.title.x = element_text(face = "plain", size = 8)) +
+  theme(axis.title.x = element_text(margin = margin(t = 4, r = 0, b = 0, l = 00))) +
+  theme(axis.title.y = element_text(face = "plain", size = 8)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 4, b = 0, l = 0))) +
+  theme(axis.ticks = element_line(size = 1)) +
+  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  
+  theme(legend.title = element_blank(),
+        legend.text = element_text(size=8),
+        legend.key = element_rect(fill = "white")) +
+  theme(legend.background = element_rect()) + 
+  theme(legend.justification=c(1,0), legend.position=c(0.92,0.02)) +
+  
+  guides(colour = guide_legend(override.aes = list(shape=c(16,15))))
+
+#plot_RT1b_p
+
+
+# combine all plots
+bigplot_PrepRTACCExeRT2b <- plot_grid(plot_prepRT1b_p, plot_ACC1b_p, plot_RT1b_p,
+ ncol = 3,
+ rel_heights = c(1,1,1),
+ rel_widths = c(1,1,1),
+ labels = c("D","E","F"),
+ label_size = 12,
+ align = "v"
+)
+bigplot_PrepRTACCExeRT2b
+
+#ggsave("Experiment2b_PrepRTACCExeRT.png", width = 14, height = 6, units = "cm")
+
+
+# combine both big plots
+bigplot_2a2b <- plot_grid(bigplot_PrepRTACCExeRT2a, bigplot_PrepRTACCExeRT2b,
+ #ncol = 1,
+ nrow = 2,
+ rel_heights = c(1,1),
+ rel_widths = c(1,1),
+ #labels = c("a","b","c"),
+ label_size = 12,
+ align = "v"
+)
+bigplot_2a2b
+
+#ggsave("Experiments2a2b_PrepRTACCExeRT.png", width = 20, height = 18, units = "cm")
+```
