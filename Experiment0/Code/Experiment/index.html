@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>My experiment</title>
+        <script src="js/jspsych-6.0.5/jspsych.js"></script>
+        <script src="js/jspsych-6.0.5/plugins/jspsych-html-keyboard-response.js"></script>
+        <script src="js/jspsych-6.0.5/plugins/jspsych-image-keyboard-response.js"></script>
+        <script src="js/jspsych-6.0.5/plugins/jspsych-survey-text-beta-6.1.js"></script>
+        <script src="js/jspsych-6.0.5/plugins/jspsych-fullscreen.js"></script>
+        <script src="js/jspsych-6.0.5/plugins/jspsych-instructions.js"></script>
+        <script src="js/jspsych-6.0.5/plugins/jspsych-survey-likert.js"></script>
+        <script src="js/jspsych-6.0.5/plugins/jspsych-survey-multi-choice.js"></script>
+        <script src="js/bowser.js"></script> <!-- a browser and operating system detector -->
+        <script src="js/images.js"></script>
+        <script src="js/UPPSP.js"></script>
+        <script src="js/jquery-1.7.1.min.js"></script> <!-- the jquery library is used to communicate with the server (to store the data) through "AJAX" and PHP -->
+        <link href="js/jspsych-6.0.5/css/jspsych.css" rel="stylesheet" type="text/css"></link>
+    </head>
+    <body></body>
+    <script>
+
+    // detect visitor variables with the bowser js library (/js/bowser.js)
+    jsPsych.data.addProperties({ // add these variables to all rows of the datafile
+      browser_name: bowser.name, browser_version: bowser.version,
+      os_name: bowser.osname, os_version: bowser.osversion,
+      tablet: String(bowser.tablet), mobile: String(bowser.mobile),
+    // convert explicitly to string so that "undefined" (no response) does not lead to empty cells in the datafile
+      screen_resolution: screen.width + ' x ' + screen.height,
+      window_resolution: window.innerWidth + ' x ' + window.innerHeight, // this will be updated throughout the experiment
+    });
+
+    /* images that need to be loaded */
+    images = ['images/PICTURE_305.png', 'images/PICTURE_62.png', 'images/PICTURE_369.png', 'images/PICTURE_516.png', 'images/PICTURE_75.png', 'images/PICTURE_33.png', 'images/PICTURE_59.png', 'images/PICTURE_221.png', 'images/PICTURE_216.png', 'images/PICTURE_661.png', 'images/PICTURE_390.png', 'images/PICTURE_573.png', 'images/PICTURE_237.png', 'images/PICTURE_339.png', 'images/PICTURE_233.png', 'images/PICTURE_634.png', 'images/PICTURE_750.png', 'images/PICTURE_130.png', 'images/PICTURE_489.png', 'images/PICTURE_115.png', 'images/PICTURE_203.png', 'images/PICTURE_71.png', 'images/PICTURE_14.png', 'images/PICTURE_626.png', 'images/PICTURE_659.png', 'images/PICTURE_45.png', 'images/PICTURE_629.png', 'images/PICTURE_353.png', 'images/PICTURE_327.png', 'images/PICTURE_630.png', 'images/PICTURE_105.png', 'images/PICTURE_90.png', 'images/PICTURE_375.png', 'images/PICTURE_244.png', 'images/PICTURE_36.png', 'images/PICTURE_697.png', 'images/PICTURE_273.png', 'images/PICTURE_649.png', 'images/PICTURE_615.png', 'images/PICTURE_63.png', 'images/PICTURE_571.png', 'images/PICTURE_310.png', 'images/PICTURE_343.png', 'images/PICTURE_517.png', 'images/PICTURE_362.png', 'images/PICTURE_505.png', 'images/PICTURE_487.png', 'images/PICTURE_110.png', 'images/PICTURE_482.png', 'images/PICTURE_394.png', 'images/PICTURE_490.png', 'images/PICTURE_226.png', 'images/PICTURE_89.png', 'images/PICTURE_338.png', 'images/PICTURE_167.png', 'images/PICTURE_406.png', 'images/PICTURE_111.png', 'images/PICTURE_282.png', 'images/PICTURE_480.png', 'images/PICTURE_308.png', 'images/PICTURE_356.png', 'images/PICTURE_672.png', 'images/PICTURE_546.png', 'images/PICTURE_386.png', 'images/PICTURE_3.png', 'images/PICTURE_88.png', 'images/PICTURE_456.png', 'images/PICTURE_652.png', 'images/PICTURE_563.png', 'images/PICTURE_702.png', 'images/PICTURE_23.png', 'images/PICTURE_333.png', 'images/PICTURE_738.png', 'images/PICTURE_316.png', 'images/PICTURE_194.png', 'images/PICTURE_536.png', 'images/PICTURE_437.png', 'images/PICTURE_296.png', 'images/PICTURE_721.png', 'images/PICTURE_10.png', 'images/PICTURE_236.png', 'images/PICTURE_614.png', 'images/PICTURE_530.png', 'images/PICTURE_341.png', 'images/PICTURE_457.png', 'images/PICTURE_46.png', 'images/PICTURE_251.png', 'images/PICTURE_306.png', 'images/PICTURE_474.png', 'images/PICTURE_183.png', 'images/PICTURE_381.png', 'images/PICTURE_84.png', 'images/PICTURE_468.png', 'images/PICTURE_190.png', 'images/PICTURE_255.png', 'images/PICTURE_671.png', 'images/PICTURE_426.png', 'images/PICTURE_373.png', 'images/PICTURE_612.png', 'images/PICTURE_675.png', 'images/PICTURE_346.png', 'images/PICTURE_15.png', 'images/PICTURE_476.png', 'images/PICTURE_560.png', 'images/PICTURE_525.png', 'images/PICTURE_271.png', 'images/PICTURE_275.png', 'images/PICTURE_374.png', 'images/PICTURE_69.png', 'images/PICTURE_344.png', 'images/PICTURE_302.png', 'images/PICTURE_593.png', 'images/PICTURE_202.png', 'images/PICTURE_407.png', 'images/PICTURE_283.png', 'images/PICTURE_365.png', 'images/PICTURE_263.png', 'images/PICTURE_101.png', 'images/PICTURE_364.png', 'images/PICTURE_537.png', 'images/PICTURE_391.png', 'images/PICTURE_651.png', 'images/PICTURE_554.png', 'images/PICTURE_433.png', 'images/PICTURE_161.png', 'images/PICTURE_7.png', 'images/PICTURE_134.png', 'images/PICTURE_151.png', 'images/PICTURE_147.png', 'images/PICTURE_162.png', 'images/PICTURE_527.png', 'images/PICTURE_724.png', 'images/PICTURE_618.png', 'images/PICTURE_673.png', 'images/PICTURE_677.png', 'images/PICTURE_422.png', 'images/PICTURE_189.png', 'images/PICTURE_417.png', 'images/PICTURE_42.png', 'images/PICTURE_606.png', 'images/PICTURE_301.png', 'images/PICTURE_454.png', 'images/PICTURE_168.png', 'images/PICTURE_392.png', 'images/PICTURE_2.png', 'images/PICTURE_124.png', 'images/PICTURE_448.png', 'images/PICTURE_192.png', 'images/PICTURE_141.png', 'images/PICTURE_523.png', 'images/PICTURE_547.png', 'images/PICTURE_163.png', 'images/PICTURE_485.png', 'images/PICTURE_453.png', 'images/PICTURE_410.png', 'images/PICTURE_300.png', 'images/PICTURE_423.png', 'images/PICTURE_72.png', 'images/PICTURE_646.png', 'images/PICTURE_378.png', 'images/PICTURE_140.png', 'images/PICTURE_559.png', 'images/PICTURE_9.png', 'images/PICTURE_120.png', 'images/PICTURE_596.png', 'images/PICTURE_57.png', 'images/PICTURE_715.png', 'images/PICTURE_52.png', 'images/PICTURE_585.png', 'images/PICTURE_566.png', 'images/PICTURE_521.png', 'images/PICTURE_402.png', 'images/PICTURE_681.png', 'images/PICTURE_549.png', 'images/PICTURE_607.png', 'images/PICTURE_67.png', 'images/PICTURE_604.png', 'images/PICTURE_610.png', 'images/PICTURE_155.png', 'images/PICTURE_37.png', 'images/PICTURE_385.png', 'images/PICTURE_99.png', 'images/PICTURE_209.png', 'images/PICTURE_277.png', 'images/PICTURE_174.png', 'images/PICTURE_384.png', 'images/PICTURE_292.png', 'images/PICTURE_716.png', 'images/PICTURE_79.png', 'images/PICTURE_80.png', 'images/PICTURE_711.png', 'images/PICTURE_123.png', 'images/PICTURE_178.png', 'images/PICTURE_1.png', 'images/PICTURE_324.png', 'images/PICTURE_360.png', 'images/PICTURE_340.png', 'images/PICTURE_196.png', 'images/PICTURE_220.png', 'images/PICTURE_620.png', 'images/PICTURE_298.png', 'images/PICTURE_368.png', 'images/PICTURE_256.png', 'images/PICTURE_93.png', 'images/PICTURE_598.png', 'images/PICTURE_309.png', 'images/PICTURE_335.png', 'images/PICTURE_744.png', 'images/PICTURE_561.png', 'images/PICTURE_164.png', 'images/PICTURE_662.png', 'images/PICTURE_414.png', 'images/PICTURE_119.png', 'images/PICTURE_156.png', 'images/PICTURE_154.png', 'images/PICTURE_591.png', 'images/PICTURE_465.png', 'images/PICTURE_551.png', 'images/PICTURE_108.png', 'images/PICTURE_479.png', 'images/PICTURE_470.png', 'images/PICTURE_428.png', 'images/PICTURE_85.png', 'images/PICTURE_258.png', 'images/PICTURE_371.png', 'images/PICTURE_695.png', 'images/PICTURE_419.png', 'images/PICTURE_166.png', 'images/PICTURE_95.png', 'images/PICTURE_370.png', 'images/PICTURE_92.png', 'images/PICTURE_640.png', 'images/PICTURE_458.png', 'images/PICTURE_541.png', 'images/PICTURE_38.png', 'images/PICTURE_133.png', 'images/PICTURE_579.png', 'images/PICTURE_703.png', 'images/PICTURE_418.png', 'images/PICTURE_467.png', 'images/PICTURE_692.png', 'images/PICTURE_683.png', 'images/PICTURE_363.png', 'images/PICTURE_687.png', 'images/PICTURE_201.png', 'images/PICTURE_268.png', 'images/PICTURE_176.png', 'images/PICTURE_18.png', 'images/PICTURE_452.png', 'images/PICTURE_358.png', 'images/PICTURE_278.png', 'images/PICTURE_297.png', 'images/PICTURE_745.png', 'images/PICTURE_735.png', 'images/PICTURE_568.png', 'images/PICTURE_359.png', 'images/PICTURE_98.png', 'images/PICTURE_325.png', 'images/PICTURE_501.png', 'images/PICTURE_372.png', 'images/PICTURE_249.png', 'images/PICTURE_584.png', 'images/PICTURE_728.png', 'images/PICTURE_628.png', 'images/PICTURE_400.png', 'images/PICTURE_538.png', 'images/PICTURE_152.png', 'images/PICTURE_336.png', 'images/PICTURE_500.png', 'images/PICTURE_78.png', 'images/PICTURE_655.png', 'images/PICTURE_229.png', 'images/PICTURE_223.png', 'images/PICTURE_321.png', 'images/PICTURE_32.png', 'images/PICTURE_534.png', 'images/PICTURE_718.png', 'images/PICTURE_498.png', 'images/PICTURE_126.png', 'images/PICTURE_145.png', 'images/PICTURE_743.png', 'images/PICTURE_193.png', 'images/PICTURE_583.png', 'images/PICTURE_285.png', 'images/PICTURE_562.png', 'images/PICTURE_648.png', 'images/PICTURE_76.png', 'images/PICTURE_442.png', 'images/PICTURE_590.png', 'images/PICTURE_315.png', 'images/PICTURE_240.png', 'images/PICTURE_509.png', 'images/PICTURE_24.png', 'images/PICTURE_235.png', 'images/PICTURE_653.png', 'images/PICTURE_409.png', 'images/PICTURE_197.png', 'images/PICTURE_664.png', 'images/PICTURE_53.png', 'images/PICTURE_611.png', 'images/PICTURE_605.png', 'images/PICTURE_633.png', 'images/PICTURE_425.png', 'images/PICTURE_431.png', 'images/PICTURE_361.png', 'images/PICTURE_200.png', 'images/PICTURE_558.png', 'images/PICTURE_179.png', 'images/PICTURE_565.png', 'images/PICTURE_725.png', 'images/PICTURE_663.png', 'images/PICTURE_469.png', 'images/PICTURE_148.png', 'images/PICTURE_679.png', 'images/PICTURE_281.png', 'images/PICTURE_234.png', 'images/PICTURE_160.png', 'images/PICTURE_269.png', 'images/PICTURE_707.png', 'images/PICTURE_668.png', 'images/PICTURE_597.png', 'images/PICTURE_570.png', 'images/PICTURE_139.png', 'images/PICTURE_528.png', 'images/PICTURE_734.png', 'images/PICTURE_639.png', 'images/PICTURE_322.png', 'images/PICTURE_635.png', 'images/PICTURE_416.png', 'images/PICTURE_107.png', 'images/PICTURE_77.png', 'images/PICTURE_638.png', 'images/PICTURE_592.png', 'images/PICTURE_382.png', 'images/PICTURE_690.png', 'images/PICTURE_733.png', 'images/PICTURE_142.png', 'images/PICTURE_484.png', 'images/PICTURE_637.png', 'images/PICTURE_293.png', 'images/PICTURE_266.png', 'images/PICTURE_383.png', 'images/PICTURE_318.png', 'images/PICTURE_397.png', 'images/PICTURE_96.png', 'images/PICTURE_435.png', 'images/PICTURE_122.png', 'images/PICTURE_727.png', 'images/PICTURE_19.png', 'images/PICTURE_654.png', 'images/PICTURE_540.png', 'images/PICTURE_693.png', 'images/PICTURE_219.png', 'images/PICTURE_720.png', 'images/PICTURE_326.png', 'images/PICTURE_388.png', 'images/PICTURE_232.png', 'images/PICTURE_722.png', 'images/PICTURE_518.png', 'images/PICTURE_446.png', 'images/PICTURE_682.png', 'images/PICTURE_665.png', 'images/PICTURE_215.png', 'images/PICTURE_304.png', 'images/PICTURE_11.png', 'images/PICTURE_68.png', 'images/PICTURE_387.png', 'images/PICTURE_97.png', 'images/PICTURE_28.png', 'images/PICTURE_295.png', 'images/PICTURE_647.png', 'images/PICTURE_657.png', 'images/PICTURE_395.png', 'images/PICTURE_475.png', 'images/PICTURE_116.png', 'images/PICTURE_699.png', 'images/PICTURE_204.png', 'images/PICTURE_429.png', 'images/PICTURE_83.png', 'images/PICTURE_238.png', 'images/PICTURE_398.png', 'images/PICTURE_613.png', 'images/PICTURE_224.png', 'images/PICTURE_642.png', 'images/PICTURE_535.png', 'images/PICTURE_64.png', 'images/PICTURE_684.png', 'images/PICTURE_588.png', 'images/PICTURE_379.png', 'images/PICTURE_676.png', 'images/PICTURE_627.png', 'images/PICTURE_380.png', 'images/PICTURE_508.png', 'images/PICTURE_719.png', 'images/PICTURE_138.png', 'images/PICTURE_40.png', 'images/PICTURE_26.png', 'images/PICTURE_488.png', 'images/PICTURE_430.png', 'images/PICTURE_460.png'];
+
+    images_instruction = ['instructions/inst1.PNG', 'instructions/inst2.PNG', 'instructions/inst3.PNG', 'instructions/inst4.PNG', 'instructions/inst5.PNG', 'instructions/inst6.PNG', 'instructions/inst7.PNG', 'instructions/inst8.PNG', 'instructions/inst9.PNG'];
+
+    var all_images = images.concat(images_instruction);
+
+    /* define some variables */
+    var resp_keys = ['D', 'F', 'J', 'K'];
+    var timeline = [];
+    var block_number = 0;
+    var welcome_message = ['<p>Welcome to the experiment.</p>' + '<p>Press "Next" to begin.</p>'];
+    var not_supported_message = ['<p>This experiment requires the Chrome or Firefox webbrowser.</p>'];
+    var label_next_button = 'Next';
+
+    /* create trials to be used in the experiment */
+    // shuffle all images
+    images = jsPsych.randomization.shuffle(images);
+
+    // randomly determine the order of blocks
+    //var image_order = Math.floor(Math.random()*2);
+    //if (image_order === 0) {
+    //    var images = images1.concat(images2);
+    //} else {
+    //    var images = images2.concat(images1);
+    //}
+
+    // create an empty array to save the generated trials
+    var trials = [];
+
+    function repeatArray(arr, count) {
+       var ln = arr.length;
+       var b = new Array();
+       for(i=0; i<count; i++) {
+          b.push(arr[i%ln]);
+          }
+         return b;
+     }
+
+    var key_list = repeatArray([0, 1, 2, 3], 100);
+    key_list = jsPsych.randomization.shuffle(key_list);
+
+    for (var i = 0; i < Math.floor(images.length/4); i ++) {
+
+    // get four images, these four images will be used in one mini-block
+    var stim1 = images[4*i];
+    var stim2 = images[4*i+1];
+    var stim3 = images[4*i+2];
+    var stim4 = images[4*i+3];
+
+    // generate a random number, will be either 0, 1, 2, or 3
+    var ranint = key_list[i];
+
+    // use the random number generated above to determine which of the four images will actually be presented
+    var stim = images[4*i+ranint];
+    var correct_key = resp_keys[ranint];
+
+
+    // html for presenting all four images together; top: vertical arrangement, bottom: horizontal arrangement
+    //var instruct_images = "<div style = 'font-size:50px'><img  align = 'middle' width = '150' height = '150' style = 'padding-right: 200px' src='" + stim1 + "'></img><strong>" + resp_keys[0] + "</div>" +
+    //                      "<div style = 'font-size:50px'><img  align = 'middle' width = '150' height = '150' style = 'padding-right: 200px' src='" + stim2 + "'></img><strong>" + resp_keys[1] + "</div>" +
+    //                      "<div style = 'font-size:50px'><img  align = 'middle' width = '150' height = '150' style = 'padding-right: 200px' src='" + stim3 + "'></img><strong>" + resp_keys[2] + "</div>" +
+    //                      "<div style = 'font-size:50px'><img  align = 'middle' width = '150' height = '150' style = 'padding-right: 200px' src='" + stim4 + "'></img><strong>" + resp_keys[3] + "</div>";
+
+    //var instruct_images = "<div><img width = '150' height = '150' style = 'padding-right: 50px' src = '" + stim1 + "'></img>" + "<img width = '150' height = '150' style = 'padding-right: 50px' src = '" + stim2 + "'></img>" + "<img width = '150' height = '150' style = 'padding-right: 50px' src = '" + stim3 + "'></img>" + "<img width = '150' height = '150' style = 'padding-right: 50px' src = '" + stim4 + "'></img></div>" +
+    //                      "<p>   </p>" +
+    //                      "<div style='font-size:50px';'</div>" + "<img style = 'margin-left: 500px'></img>" + "</img><strong>" + resp_keys[0] + "<img style = 'margin-left: 250px'></img>" + "</img><strong>" + resp_keys[1] + "<img style = 'margin-left: 250px'></img>" + "</img><strong>" + resp_keys[2] + "<img style = 'margin-left: 250px'></img>" + "</img><strong>" + resp_keys[3];
+
+    var instruct_images = '<div id="images">' + '<a><img src="' + stim1 + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + resp_keys[0] + '</div></a><a><img src="' + stim2 + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + resp_keys[1] + '</div></a><a><img src="' + stim3 + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + resp_keys[2] + '</div></a><a><img src="' + stim4 + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + resp_keys[3] + '</div></a></div>';
+
+    //var boards_mask = '<div id="images">' + '<a><img src="' + mask1 + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + '</div></a><a><img src="' + mask2 + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + '</div></a><a><img src="' + mask3 + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + '</div></a><a><img src="' + mask4 + '" width="150px" height="150px" style="padding-bottom: 50px;"><div class="caption">' + '</div></a></div>';
+
+    stim = "<div><img width = '150' height = '150' src = '" + stim + "'></img></div>";
+
+    // put everyting into one object
+    var one_trial = {instruct_images: instruct_images,
+                     stimulus:stim,
+                     data:{
+                       stim1: stim1,
+                       stim2: stim2,
+                       stim3: stim3,
+                       stim4: stim4,
+                       stimulus: stim,
+                       correct_key: correct_key
+                     }
+
+    };
+
+    // add the current mini-block to the experimental array
+    trials.push(one_trial);
+    };
+
+
+    // is the experiment running from a server or not? (this determines if data is saved on server or offline)
+    if (document.location.host) { // returns your host or null
+      online = true;
+    } else {
+      online = false;
+    };
+
+   // welcome and browser detector, end experiment if no compatible browser
+    var welcome = {
+      type: "instructions",
+      pages: welcome_message,
+      show_clickable_nav: true,
+      button_label_next: label_next_button,
+      on_start: function(trial){
+        if (bowser.name == 'Firefox' || bowser.name == 'Chrome'){
+          trial.pages = welcome_message;
+        } else {
+          trial.pages = not_supported_message;
+          setTimeout(function(){location.href="html/not_supported.html"}, 2000);
+        }
+      }
+    };
+
+   timeline.push(welcome);
+
+    // prolific ID
+    var prolific = {
+      type: 'survey-text',
+      questions: [
+      {prompt: "Please turn off music, cell phone and other devices that might be distracting. Enter your prolific ID below: ", required: true}],
+      on_finish: function(data) {
+        var responses = JSON.parse(data.responses);
+        var prolific_ID = responses.Q0;
+        jsPsych.data.addProperties({
+        prolific_ID: prolific_ID
+        });
+      }
+    };
+
+    timeline.push(prolific);
+
+    // fullscreen mode
+    var fullscreen_mode = {
+      type: 'fullscreen',
+      fullscreen_mode: true
+    };
+
+    timeline.push(fullscreen_mode);
+
+    // informed consent trial. The informed_consent_text variable comes from /configuration/text_variables.js
+    var consent = {
+      type: 'instructions',
+      pages: [
+        '<p>I understand that:</p>'+
+        '<p>Participation in this study is entirely voluntary, I can decline to answer any question at any time, and I can withdraw from the study at any time without giving a reason.</p>'+
+        '<p>Non-participation or withdrawal from the study will not be of any disadvantage for me.</p>'+
+        '<p>If I prematurely withdraw from the study, I will still be appropriately compensated for my participation.</p>'+
+        '<p>During the data-gathering phase, I can instruct the researchers carrying out this study to delete (part of) the data obtained from me from their records.</p>'+
+        '<p>I am free to ask any questions at any time and I can arrange to discuss any concerns with the lead researcher (see below).</p>'+
+        '<p>The information and data provided by me in this experiment will be used for statistical research and research administration purposes only.</p>'+
+        '<p>No data or responses will be published in which I can be identified individually.</p>'+
+        '<p>My personal details will not be revealed to people outside the research project.</p>'+
+        '<p>Anonymized data from the study, which do not contain any personally identifying information, will be registered and archived at a trusted public data repository (e.g. OSF or Zenodo) in order to make them available to other researchers in line with current data sharing practices.</p>' +
+        '<p>If you require more information about this study, please contact Prof. Frederick Verbruggen (Lead Researcher); Email: frederick.verbruggen@ugent.be</p>'],
+      show_clickable_nav: true,
+      button_label_next: "I agree",
+      allow_backward: false
+    };
+
+    timeline.push(consent);
+
+    // get participant's age and add it to the datafile
+    var age = {
+      type: 'survey-text',
+      questions: [{
+        prompt: "Please enter your age",
+        required: true
+      }, ],
+      on_finish: function(data) {
+        var responses = JSON.parse(data.responses);
+        var code = responses.Q0;
+        jsPsych.data.addProperties({
+          age: code
+        });
+      }
+    };
+
+    timeline.push(age);
+
+    // get participant's gender and add it to the datafile
+    var gender = {
+      type: 'survey-multi-choice',
+      questions: [{
+        prompt: "Please enter your gender",
+        options: ["male", "female", "I don't want to say"],
+        required: true
+      }, ],
+      on_finish: function(data) {
+        var responses = JSON.parse(data.responses);
+        var code = responses.Q0;
+        jsPsych.data.addProperties({
+          gender: code
+        });
+      }
+    };
+
+    timeline.push(gender);
+
+    // get participant's dominant hand and add it to the datafile
+    var handedness = {
+      type: 'survey-multi-choice',
+      questions: [{
+        prompt: "Please enter your handedness",
+        options: ["left", "right", "I don't know"],
+        required: true
+      }, ],
+      on_finish: function(data) {
+        var responses = JSON.parse(data.responses);
+        var code = responses.Q0;
+        jsPsych.data.addProperties({
+          handedness: code
+        });
+      }
+    };
+
+    timeline.push(handedness);
+
+    // instructions for the experiment
+    var instructions_experiment = {
+        type: 'instructions',
+        pages: [
+          '<img src="instructions/inst1.PNG"></img>',
+          '<img src="instructions/inst2.PNG"></img>',
+          '<img src="instructions/inst3.PNG"></img>',
+          '<img src="instructions/inst4.PNG"></img>',
+          '<img src="instructions/inst5.PNG"></img>',
+          '<img src="instructions/inst6.PNG"></img>',
+          '<img src="instructions/inst7.PNG"></img>'
+        ],
+        key_forward: 'space',
+        key_backward: 'j',
+        on_start: function() {
+          document.body.style.cursor = 'none'; // hide the mouse cursor
+        }
+      };
+      timeline.push(instructions_experiment);
+
+    // start screen
+    var start_screen = {
+        type: 'html-keyboard-response',
+        stimulus: '<div style="font-size:30px;">Press space to start the next block</div>',
+        choices: ['space'],
+        on_finish: function(data) {
+          console.log(data);
+        }
+    };
+
+    // instruction screen
+    var instruction_screen = {
+      type: "html-keyboard-response",
+      stimulus: jsPsych.timelineVariable('instruct_images'),
+      choices: ['space'],
+      on_finish: function(data) {
+        console.log(data);
+      }
+    };
+
+    // mask screen
+    //var mask_screen = {
+    //    type: 'html-keyboard-response',
+    //    stimulus: jsPsych.timelineVariable('boards_mask'),
+    //    choices: jsPsych.NO_KEYS,
+    //    trial_duration: 500,
+    //    data: {test_part: 'mask_screen'}
+    //};
+
+    // define fixation cross
+    var fixation = {
+        type: 'html-keyboard-response',
+        stimulus: '<div style="font-size:60px;">+</div>',
+        choices: jsPsych.NO_KEYS,
+        trial_duration: 500,
+        data: {test_part: 'fixation'}
+    };
+
+    // one response trial
+    var test = {
+        type: "html-keyboard-response",
+        stimulus: jsPsych.timelineVariable('stimulus'),
+        choices: resp_keys,
+        data: jsPsych.timelineVariable('data'),
+        on_finish: function(data){
+          // add test part
+          data.test_part = 'preparation';
+
+          // add block number
+          block_number ++;
+          data.block_number = block_number;
+
+          // add start RT
+          var start_rt = jsPsych.data.get().last(4).values()[0]; // get data from the start screen; before the mask was added it said last(4).values
+          data.startRT = start_rt.rt;
+
+          // add preparation RT
+          var prep_rt = jsPsych.data.get().last(3).values()[0]; // get data from the preparation screen; before the mask was added it said last(3).values
+          data.prepRT = prep_rt.rt;
+
+          // add whether the response is correct or not
+          data.correct = data.key_press == jsPsych.pluginAPI.convertKeyCharacterToKeyCode(data.correct_key);
+          data.pressed_key = jsPsych.pluginAPI.convertKeyCodeToKeyCharacter(data.key_press);
+
+          console.log(data);
+
+        }
+    };
+
+    // feedback screen
+    var feedback = {
+        type: 'html-keyboard-response',
+        stimulus: function() {
+            // get informtion from the response trial
+            var resp_trial = jsPsych.data.get().last().values()[0];
+
+            console.log(resp_trial);
+
+            if (resp_trial.correct) {
+                return '<div style="font-size:30px;">Correct Response. Response Time: ' + resp_trial.rt + ' milliseconds.</div>';
+            } else {
+                return '<div style="font-size:30px;">Incorrect Response. Response Time: ' + resp_trial.rt + ' milliseconds.</div>';
+            }
+
+        },
+
+        choices: jsPsych.NO_KEYS,
+        trial_duration: 1000
+    };
+
+    // blank screen
+    var blank_screen = {
+        type: 'html-keyboard-response',
+        stimulus: '<div style="font-size:60px;"> </div>',
+        choices: jsPsych.NO_KEYS,
+        trial_duration: 500
+    };
+
+    // mini-block
+    var test_procedure = {
+        timeline: [start_screen, instruction_screen, fixation, test, feedback, blank_screen],
+        timeline_variables: trials
+        //randomize_order: true,//
+    };
+
+    timeline.push(test_procedure);
+
+    // instructions for UPPS
+    var instructions_UPPS = {
+        type: 'instructions',
+        pages: [
+          '<img src="instructions/inst8.PNG"></img>'
+        ],
+        key_forward: 'space',
+        //key_backward: 'j',
+        on_start: function() {
+          document.body.style.cursor = 'auto'; // show the mouse cursor
+        }
+      };
+      timeline.push(instructions_UPPS);
+
+      // show UPPSP questionnaire
+      timeline.push(...UPPSP_items);
+
+      // debriefing after UPPS
+      var debriefing = {
+     type: 'html-keyboard-response',
+     stimulus: "<p>Thanks! In this study, we aim to investigate how people learn new instructions and perform tasks that they have never executed before." +
+     "Therefore, we measure how long it takes participants to learn the mappings between the images and the response keys as well as how long it takes participants to respond to an image and whether that response is correct or incorrect.</p>" +
+     "<p>We really appreciate your participation and contribution to this research. If you have any questions, you can contact the researcher at christina.reimer@ugent.be.</p>"+
+     "<p><a href='https://app.prolific.ac/submissions/complete?cc=TMPAG7RD'>Click here to complete the experiment and return to Prolific.</a></p>",
+     choices: jsPsych.NO_KEYS
+   };
+        timeline.push(debriefing);
+
+    // function that appends data to an existing file (or creates the file if it does not exist)
+    function appendData(filename, filedata) {
+      $.ajax({ // make sure jquery-1.7.1.min.js is loaded in the html header for this to work
+        type: 'post',
+        cache: false,
+        url: 'php/save_data_append.php', // IMPORTANT: change the php script to link to the directory of your server where you want to store the data!
+        data: {
+          filename: filename,
+          filedata: filedata
+        },
+      });
+    };
+
+    // start the experiment
+    jsPsych.init({
+      timeline: timeline,
+      preload_images: all_images,
+      on_data_update: function(data){
+        if (online){
+          var subjID = jsPsych.data.get().last(1).values()[0]['prolific_ID'];
+          if (data.trial_index == 1){ // write header at first event
+            var header = "prolific_ID, age, gender, handedness, block_number, stim1, stim2, stim3, stim4, stimulus, pressed_key, correct_key, correct, startRT, prepRT, rt, time_elapsed, factor, resp\n";
+            appendData('CIA_Preparation_PrepStratOnline1_'+ subjID +'.csv', header);
+          } else if (data.test_part == 'preparation' || data.trial_type == 'survey-likert'){ // append data each stimulus when a categorize-html occurs
+            data_row = data.prolific_ID + ',' + data.age + ',' + data.gender + ',' + data.handedness + ',' + data.block_number + ',' + data.stim1 + ',' + data.stim2 + ','
+            + data.stim3 + ',' + data.stim4 + ',' + data.stimulus + ',' + data.pressed_key + ',' + data.correct_key + ',' + data.correct + ',' + data.startRT + ',' + data.prepRT + ','
+            + data.rt + ',' + data.time_elapsed + ',' + data.factor + ',' + data.resp + '\n';
+
+            appendData('CIA_Preparation_PrepStratOnline1_'+ subjID +'.csv', data_row);
+        }
+      }
+    },
+      on_finish: function() {
+          if (!online){
+            jsPsych.data.get().localSave('csv','mydata.csv');
+          }
+      }
+    })
+  </script>
+</html>

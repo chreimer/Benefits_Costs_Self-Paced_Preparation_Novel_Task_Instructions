@@ -1,0 +1,958 @@
+---
+title: "Reanalysis of Verbruggen et al. (2018)"
+author: "Christina Reimer"
+date: "2020 08 18"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+
+```{r setup, include=TRUE, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r load libraries, warning=FALSE, message=FALSE, echo=FALSE}
+library(afex)
+library(BayesFactor)
+library(car)
+library(cowplot)
+library(DataCombine)
+library(data.table)
+library(extrafont)
+library(ez)
+library(ggpubr)
+library(gridExtra)
+library(knitr)
+library(tidyverse)
+```
+
+
+```{r load data Kids, warning=FALSE, echo=FALSE}
+# clear directory
+rm(list=ls()) 
+
+
+# open files and add participant number
+input_Kids = data.frame()
+
+files <- dir(path = "../../Data/Raw", pattern = "UTM_NextChild2_*")
+
+for (i in files) {
+  
+  tmp <- read.delim(file = file.path("../../Data/Raw/", i))
+  tmp$participant = i
+  
+  # add the files to the data frame
+  input_Kids = rbind (input_Kids, tmp)
+  rm(tmp)
+}
+
+
+# convert some factor variables to numeric variables
+input_Kids$block = as.numeric(as.character(input_Kids$block))
+input_Kids$rt = as.numeric(as.character(input_Kids$rt))
+
+
+# remove participants who could not do the experiment
+input_Kids = input_Kids %>%
+  filter(participant != "UTM_NextChild2_139_nr1.txt") %>%
+  filter(participant != "UTM_NextChild2_142_nr2.txt") %>%
+  filter(participant != "UTM_NextChild2_143_nr1.txt") %>%
+  filter(participant != "UTM_NextChild2_149_nr1.txt") %>%
+  filter(participant != "UTM_NextChild2_166_nr2.txt") 
+ 
+
+# filter practice part, next phase and go2 trials for the analysis
+# in other words, keep only mapping/instruction phase and the first go trial for the analysis
+input_Kids = input_Kids %>%
+  filter(part == "exp") %>%
+  filter(phase == "map" | phase == "go1") 
+
+
+# reformat the data, so that mapping/instruction phase and go1 trial are in one line
+input_Kids = input_Kids %>%
+  mutate(rt_go1 = lead(rt)) %>%
+  mutate(acc_go1 = lead(correct))
+
+
+# remove rows with phase = go1, so that there is only one row per trial
+input_Kidsn = input_Kids %>%
+  filter(phase == "map")
+```
+
+
+#### Pair-split analysis for all participants
+```{r Kids pair-split analysis, warning=FALSE, message=FALSE, echo=FALSE}
+input_Kidsn_pairsplit = input_Kidsn %>% 
+  arrange(participant, block) %>% 
+  mutate(pair = ceiling(block/2)) %>% # create pair number based on block number; block 1 and 2 will be pair 1, etc.
+  group_by(participant, pair) %>%
+  mutate(n_block_in_pair = n(), # count number of blocks in a pair; due to missing data, some 'pair's have only one block
+         Pair_PrepRT = mean(rt), # calculate the mean prepRT of each pair
+         fasterPreparation = (rt < Pair_PrepRT), # determine whether each block is the one with shorter prepRT in the pair
+         diff = rt - Pair_PrepRT) %>% # calculate the difference between raw prepRT and the average of each pair 
+  filter(n_block_in_pair == 2, # select only pairs that have two blocks
+         diff != 0) # select pairs where the prepRT of the two blocks differ 
+
+
+# check: each participant should have equal number of faster and slower blocks
+table(input_Kidsn_pairsplit$participant, input_Kidsn_pairsplit$fasterPreparation)
+table(input_Kidsn_pairsplit$fasterPreparation)
+
+
+
+# calculate mean prepRT depending on pair-split
+prepRT_pairsplit = input_Kidsn_pairsplit %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(prepRT = mean(rt)) %>%
+  mutate(age_group = "4-19")
+
+
+prepRT_pairsplit_GM = prepRT_pairsplit %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    prepRT = mean(prepRT))
+kable(prepRT_pairsplit_GM, caption = "PrepRT for fast vs slow preparation", digits = 2) 
+
+
+# calculate removed trials in %
+#100 - ((100/9744*8772))
+
+
+# calculate mean ACC depending on pair-split
+ACC_pairsplit = input_Kidsn_pairsplit %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(ACC = mean(acc_go1)) %>%
+  mutate(age_group = "4-19")
+
+ACC_pairsplit_GM = ACC_pairsplit %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    ACC = mean(ACC))
+kable(ACC_pairsplit_GM, caption = "ACC depending on fast vs slow preparation", digits = 2) 
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+ACC_pairsplit_wide = ACC_pairsplit %>%
+  dcast(participant ~fasterPreparation, value.var = "ACC") %>%
+  DropNA()
+
+ACC_pairsplit_pw = TES(ACC_pairsplit_wide$`FALSE`, ACC_pairsplit_wide$`TRUE`, paired=TRUE)
+
+row.names(ACC_pairsplit_pw) = c('ACC')
+kable(ACC_pairsplit_pw, caption = "Paired-samples t-test on ACC", digits = 2) 
+
+
+# table ACC
+ACC_pairsplit_table = ACC_pairsplit %>%
+  group_by(fasterPreparation) %>%
+  summarise(mean.ACC = mean(ACC, na.rm = TRUE),
+            sd.ACC = sd(ACC, na.rm = TRUE),
+            n.ACC = n()) %>%
+  mutate(se.ACC = sd.ACC / sqrt(n.ACC),
+         lower.ci.ACC = mean.ACC - qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC,
+         upper.ci.ACC = mean.ACC + qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC)
+kable(ACC_pairsplit_table, caption = "ACC depending on fast vs slow preparation", digits = 2) 
+
+
+# calculate mean exeRT depending on pair-split
+RT_pairsplit = input_Kidsn_pairsplit %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  filter(acc_go1 == "1") %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(RT = mean(rt_go1)) %>%
+  mutate(age_group = "4-19")
+
+RT_pairsplit_GM = RT_pairsplit %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    RT = mean(RT))
+kable(RT_pairsplit_GM, caption = "ExeRT depending on fast vs slow preparation", digits = 2) 
+
+
+# calculate removed trials in %
+#100 - ((100/8772*7515))
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+RT_pairsplit_wide = RT_pairsplit %>%
+  dcast(participant ~fasterPreparation, value.var = "RT") %>%
+  DropNA()
+
+RT_pairsplit_pw = TES(RT_pairsplit_wide$`FALSE`, RT_pairsplit_wide$`TRUE`, paired=TRUE)
+
+row.names(RT_pairsplit_pw) = c('RT')
+kable(RT_pairsplit_pw, caption = "Paired-samples t-test on exeRT", digits = 2) 
+```
+
+
+\newpage
+#### Pair-split analysis for 4-5 year olds (age group 1)
+```{r Kids group 1 pair-split analysis, warning=FALSE, message=FALSE, echo=FALSE}
+input_Kidsn_group1 = input_Kidsn %>%
+  filter(age <= 5)
+
+
+input_Kidsn_pairsplit_group1 = input_Kidsn_group1 %>% 
+  arrange(participant, block) %>% 
+  mutate(pair = ceiling(block/2)) %>% # create pair number based on block number; block 1 and 2 will be pair 1, etc.
+  group_by(participant, pair) %>%
+  mutate(n_block_in_pair = n(), # count number of blocks in a pair; due to missing data, some 'pair's have only one block
+         Pair_PrepRT = mean(rt), # calculate the mean prepRT of each pair
+         fasterPreparation = (rt < Pair_PrepRT), # determine whether each block is the one with shorter prepRT in the pair
+         diff = rt - Pair_PrepRT) %>% # calculate the difference between raw prepRT and the average of each pair 
+  filter(n_block_in_pair == 2, # select only pairs that have two blocks
+         diff != 0) # select pairs where the prepRT of the two blocks differ 
+
+
+# check: each participant should have equal number of faster and slower blocks
+#table(input_Kidsn_pairsplit_group1$participant, input_Kidsn_pairsplit_group1$fasterPreparation)
+
+
+# calculate mean prepRT depending on pair-split
+prepRT_pairsplit_group1 = input_Kidsn_pairsplit_group1 %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(prepRT = mean(rt)) %>%
+  mutate(age_group = "4-5")
+
+
+prepRT_pairsplit_GM_group1 = prepRT_pairsplit_group1 %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    prepRT = mean(prepRT))
+kable(prepRT_pairsplit_GM_group1, caption = "PrepRT for fast vs slow preparation", digits = 2) 
+
+
+# calculate mean ACC depending on pair-split
+ACC_pairsplit_group1 = input_Kidsn_pairsplit_group1 %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(ACC = mean(acc_go1)) %>%
+  mutate(age_group = "4-5")
+
+ACC_pairsplit_GM_group1 = ACC_pairsplit_group1 %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    ACC = mean(ACC))
+kable(ACC_pairsplit_GM_group1, caption = "ACC depending on fast vs slow preparation", digits = 2) 
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+ACC_pairsplit_wide_group1 = ACC_pairsplit_group1 %>%
+  dcast(participant ~fasterPreparation, value.var = "ACC") %>%
+  DropNA()
+
+ACC_pairsplit_pw_group1 = TES(ACC_pairsplit_wide_group1$`FALSE`, ACC_pairsplit_wide_group1$`TRUE`, paired=TRUE)
+
+row.names(ACC_pairsplit_pw_group1) = c('ACC')
+kable(ACC_pairsplit_pw_group1, caption = "Paired-samples t-test on ACC", digits = 2) 
+
+
+# table ACC
+ACC_pairsplit_table_group1 = ACC_pairsplit_group1 %>%
+  group_by(fasterPreparation) %>%
+  summarise(mean.ACC = mean(ACC, na.rm = TRUE),
+            sd.ACC = sd(ACC, na.rm = TRUE),
+            n.ACC = n()) %>%
+  mutate(se.ACC = sd.ACC / sqrt(n.ACC),
+         lower.ci.ACC = mean.ACC - qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC,
+         upper.ci.ACC = mean.ACC + qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC)
+kable(ACC_pairsplit_table_group1, caption = "ACC depending on fast vs slow preparation", digits = 2) 
+
+
+# calculate mean exeRT depending on pair-split
+RT_pairsplit_group1 = input_Kidsn_pairsplit_group1 %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  filter(acc_go1 == "1") %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(RT = mean(rt_go1)) %>%
+  mutate(age_group = "4-5")
+
+RT_pairsplit_GM_group1 = RT_pairsplit_group1 %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    RT = mean(RT))
+kable(RT_pairsplit_GM_group1, caption = "ExeRT depending on fast vs slow preparation", digits = 2) 
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+RT_pairsplit_wide_group1 = RT_pairsplit_group1 %>%
+  dcast(participant ~fasterPreparation, value.var = "RT") %>%
+  DropNA()
+
+RT_pairsplit_pw_group1 = TES(RT_pairsplit_wide_group1$`FALSE`, RT_pairsplit_wide_group1$`TRUE`, paired=TRUE)
+
+row.names(RT_pairsplit_pw_group1) = c('RT')
+kable(RT_pairsplit_pw_group1, caption = "Paired-samples t-test on exeRT", digits = 2) 
+```
+
+
+\newpage
+#### Pair-split analysis for 6-7 year olds (age group 2)
+```{r Kids group 2 pair-split analysis, warning=FALSE, message=FALSE, echo=FALSE}
+input_Kidsn_group2 = input_Kidsn %>%
+  filter(age == "6" | age == "7")
+
+
+input_Kidsn_pairsplit_group2 = input_Kidsn_group2 %>% 
+  arrange(participant, block) %>% 
+  mutate(pair = ceiling(block/2)) %>% # create pair number based on block number; block 1 and 2 will be pair 1, etc.
+  group_by(participant, pair) %>%
+  mutate(n_block_in_pair = n(), # count number of blocks in a pair; due to missing data, some 'pair's have only one block
+         Pair_PrepRT = mean(rt), # calculate the mean prepRT of each pair
+         fasterPreparation = (rt < Pair_PrepRT), # determine whether each block is the one with shorter prepRT in the pair
+         diff = rt - Pair_PrepRT) %>% # calculate the difference between raw prepRT and the average of each pair 
+  filter(n_block_in_pair == 2, # select only pairs that have two blocks
+         diff != 0) # select pairs where the prepRT of the two blocks differ 
+
+
+# check: each participant should have equal number of faster and slower blocks
+#table(input_Kidsn_pairsplit_group2$participant, input_Kidsn_pairsplit_group2$fasterPreparation)
+
+
+# calculate mean prepRT depending on pair-split
+prepRT_pairsplit_group2 = input_Kidsn_pairsplit_group2 %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(prepRT = mean(rt)) %>%
+  mutate(age_group = "6-7")
+
+
+prepRT_pairsplit_GM_group2= prepRT_pairsplit_group2 %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    prepRT = mean(prepRT))
+kable(prepRT_pairsplit_GM_group2, caption = "PrepRT for fast vs slow preparation", digits = 2) 
+
+
+# calculate mean ACC depending on pair-split
+ACC_pairsplit_group2 = input_Kidsn_pairsplit_group2 %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(ACC = mean(acc_go1)) %>%
+  mutate(age_group = "6-7")
+
+ACC_pairsplit_GM_group2 = ACC_pairsplit_group2 %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    ACC = mean(ACC))
+kable(ACC_pairsplit_GM_group2, caption = "ACC depending on fast vs slow preparation", digits = 2) 
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+ACC_pairsplit_wide_group2 = ACC_pairsplit_group2 %>%
+  dcast(participant ~fasterPreparation, value.var = "ACC") %>%
+  DropNA()
+
+ACC_pairsplit_pw_group2 = TES(ACC_pairsplit_wide_group2$`FALSE`, ACC_pairsplit_wide_group2$`TRUE`, paired=TRUE)
+
+row.names(ACC_pairsplit_pw_group2) = c('ACC')
+kable(ACC_pairsplit_pw_group2, caption = "Paired-samples t-test on ACC", digits = 2) 
+
+
+# table ACC
+ACC_pairsplit_table_group2 = ACC_pairsplit_group2 %>%
+  group_by(fasterPreparation) %>%
+  summarise(mean.ACC = mean(ACC, na.rm = TRUE),
+            sd.ACC = sd(ACC, na.rm = TRUE),
+            n.ACC = n()) %>%
+  mutate(se.ACC = sd.ACC / sqrt(n.ACC),
+         lower.ci.ACC = mean.ACC - qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC,
+         upper.ci.ACC = mean.ACC + qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC)
+kable(ACC_pairsplit_table_group2, caption = "ACC depending on fast vs slow preparation", digits = 2) 
+
+
+# calculate mean exeRT depending on pair-split
+RT_pairsplit_group2 = input_Kidsn_pairsplit_group2 %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  filter(acc_go1 == "1") %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(RT = mean(rt_go1)) %>%
+  mutate(age_group = "6-7")
+
+RT_pairsplit_GM_group2 = RT_pairsplit_group2 %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    RT = mean(RT))
+kable(RT_pairsplit_GM_group2, caption = "ExeRT depending on fast vs slow preparation", digits = 2) 
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+RT_pairsplit_wide_group2 = RT_pairsplit_group2 %>%
+  dcast(participant ~fasterPreparation, value.var = "RT") %>%
+  DropNA()
+
+RT_pairsplit_pw_group2 = TES(RT_pairsplit_wide_group2$`FALSE`, RT_pairsplit_wide_group2$`TRUE`, paired=TRUE)
+
+row.names(RT_pairsplit_pw_group2) = c('RT')
+kable(RT_pairsplit_pw_group2, caption = "Paired-samples t-test on exeRT", digits = 2) 
+```
+
+
+\newpage
+#### Pair-split analysis for 8-9 year olds (age group 3)
+```{r Kids group 3 pair-split analysis, warning=FALSE, message=FALSE, echo=FALSE}
+input_Kidsn_group3 = input_Kidsn %>%
+  filter(age == "8" | age == "9")
+
+
+input_Kidsn_pairsplit_group3 = input_Kidsn_group3 %>% 
+  arrange(participant, block) %>% 
+  mutate(pair = ceiling(block/2)) %>% # create pair number based on block number; block 1 and 2 will be pair 1, etc.
+  group_by(participant, pair) %>%
+  mutate(n_block_in_pair = n(), # count number of blocks in a pair; due to missing data, some 'pair's have only one block
+         Pair_PrepRT = mean(rt), # calculate the mean prepRT of each pair
+         fasterPreparation = (rt < Pair_PrepRT), # determine whether each block is the one with shorter prepRT in the pair
+         diff = rt - Pair_PrepRT) %>% # calculate the difference between raw prepRT and the average of each pair 
+  filter(n_block_in_pair == 2, # select only pairs that have two blocks
+         diff != 0) # select pairs where the prepRT of the two blocks differ 
+
+
+# check: each participant should have equal number of faster and slower blocks
+#table(input_Kidsn_pairsplit_group3$participant, input_Kidsn_pairsplit_group3$fasterPreparation)
+
+
+# calculate mean prepRT depending on pair-split
+prepRT_pairsplit_group3 = input_Kidsn_pairsplit_group3 %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(prepRT = mean(rt)) %>%
+  mutate(age_group = "8-9")
+
+
+prepRT_pairsplit_GM_group3= prepRT_pairsplit_group3 %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    prepRT = mean(prepRT))
+kable(prepRT_pairsplit_GM_group3, caption = "PrepRT for fast vs slow preparation", digits = 2) 
+
+
+# calculate mean ACC depending on pair-split
+ACC_pairsplit_group3 = input_Kidsn_pairsplit_group3 %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(ACC = mean(acc_go1)) %>%
+  mutate(age_group = "8-9")
+
+ACC_pairsplit_GM_group3 = ACC_pairsplit_group3 %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    ACC = mean(ACC))
+kable(ACC_pairsplit_GM_group3, caption = "ACC depending on fast vs slow preparation", digits = 2) 
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+ACC_pairsplit_wide_group3 = ACC_pairsplit_group3 %>%
+  dcast(participant ~fasterPreparation, value.var = "ACC") %>%
+  DropNA()
+
+ACC_pairsplit_pw_group3 = TES(ACC_pairsplit_wide_group3$`FALSE`, ACC_pairsplit_wide_group3$`TRUE`, paired=TRUE)
+
+row.names(ACC_pairsplit_pw_group3) = c('ACC')
+kable(ACC_pairsplit_pw_group3, caption = "Paired-samples t-test on ACC", digits = 2) 
+
+
+# table ACC
+ACC_pairsplit_table_group3 = ACC_pairsplit_group3 %>%
+  group_by(fasterPreparation) %>%
+  summarise(mean.ACC = mean(ACC, na.rm = TRUE),
+            sd.ACC = sd(ACC, na.rm = TRUE),
+            n.ACC = n()) %>%
+  mutate(se.ACC = sd.ACC / sqrt(n.ACC),
+         lower.ci.ACC = mean.ACC - qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC,
+         upper.ci.ACC = mean.ACC + qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC)
+kable(ACC_pairsplit_table_group3, caption = "ACC depending on fast vs slow preparation", digits = 2) 
+
+
+# calculate mean exeRT depending on pair-split
+RT_pairsplit_group3 = input_Kidsn_pairsplit_group3 %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  filter(acc_go1 == "1") %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(RT = mean(rt_go1)) %>%
+  mutate(age_group = "8-9")
+
+RT_pairsplit_GM_group3 = RT_pairsplit_group3 %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    RT = mean(RT))
+kable(RT_pairsplit_GM_group3, caption = "ExeRT depending on fast vs slow preparation", digits = 2) 
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+RT_pairsplit_wide_group3 = RT_pairsplit_group3 %>%
+  dcast(participant ~fasterPreparation, value.var = "RT") %>%
+  DropNA()
+
+RT_pairsplit_pw_group3 = TES(RT_pairsplit_wide_group3$`FALSE`, RT_pairsplit_wide_group3$`TRUE`, paired=TRUE)
+
+row.names(RT_pairsplit_pw_group3) = c('RT')
+kable(RT_pairsplit_pw_group3, caption = "Paired-samples t-test on exeRT", digits = 2) 
+```
+
+
+\newpage
+#### Pair-split analysis for 10-11 year olds (age group 4)
+```{r Kids group 4 pair-split analysis, warning=FALSE, message=FALSE, echo=FALSE}
+input_Kidsn_group4 = input_Kidsn %>%
+  filter(age == "10" | age == "11")
+
+
+input_Kidsn_pairsplit_group4 = input_Kidsn_group4 %>% 
+  arrange(participant, block) %>% 
+  mutate(pair = ceiling(block/2)) %>% # create pair number based on block number; block 1 and 2 will be pair 1, etc.
+  group_by(participant, pair) %>%
+  mutate(n_block_in_pair = n(), # count number of blocks in a pair; due to missing data, some 'pair's have only one block
+         Pair_PrepRT = mean(rt), # calculate the mean prepRT of each pair
+         fasterPreparation = (rt < Pair_PrepRT), # determine whether each block is the one with shorter prepRT in the pair
+         diff = rt - Pair_PrepRT) %>% # calculate the difference between raw prepRT and the average of each pair 
+  filter(n_block_in_pair == 2, # select only pairs that have two blocks
+         diff != 0) # select pairs where the prepRT of the two blocks differ 
+
+
+# check: each participant should have equal number of faster and slower blocks
+#table(input_Kidsn_pairsplit_group4$participant, input_Kidsn_pairsplit_group4$fasterPreparation)
+
+
+# calculate mean prepRT depending on pair-split
+prepRT_pairsplit_group4 = input_Kidsn_pairsplit_group4 %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(prepRT = mean(rt)) %>%
+  mutate(age_group = "10-11")
+
+
+prepRT_pairsplit_GM_group4= prepRT_pairsplit_group4 %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    prepRT = mean(prepRT))
+kable(prepRT_pairsplit_GM_group4, caption = "PrepRT for fast vs slow preparation", digits = 2) 
+
+
+# calculate mean ACC depending on pair-split
+ACC_pairsplit_group4 = input_Kidsn_pairsplit_group4 %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(ACC = mean(acc_go1)) %>%
+  mutate(age_group = "10-11")
+
+ACC_pairsplit_GM_group4 = ACC_pairsplit_group4 %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    ACC = mean(ACC))
+kable(ACC_pairsplit_GM_group4, caption = "ACC depending on fast vs slow preparation", digits = 2) 
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+ACC_pairsplit_wide_group4 = ACC_pairsplit_group4 %>%
+  dcast(participant ~fasterPreparation, value.var = "ACC") %>%
+  DropNA()
+
+ACC_pairsplit_pw_group4 = TES(ACC_pairsplit_wide_group4$`FALSE`, ACC_pairsplit_wide_group4$`TRUE`, paired=TRUE)
+
+row.names(ACC_pairsplit_pw_group4) = c('ACC')
+kable(ACC_pairsplit_pw_group4, caption = "Paired-samples t-test on ACC", digits = 2) 
+
+
+# table ACC
+ACC_pairsplit_table_group4 = ACC_pairsplit_group4 %>%
+  group_by(fasterPreparation) %>%
+  summarise(mean.ACC = mean(ACC, na.rm = TRUE),
+            sd.ACC = sd(ACC, na.rm = TRUE),
+            n.ACC = n()) %>%
+  mutate(se.ACC = sd.ACC / sqrt(n.ACC),
+         lower.ci.ACC = mean.ACC - qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC,
+         upper.ci.ACC = mean.ACC + qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC)
+kable(ACC_pairsplit_table_group4, caption = "ACC depending on fast vs slow preparation", digits = 2) 
+
+
+# calculate mean exeRT depending on pair-split
+RT_pairsplit_group4 = input_Kidsn_pairsplit_group4 %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  filter(acc_go1 == "1") %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(RT = mean(rt_go1)) %>%
+  mutate(age_group = "10-11")
+
+RT_pairsplit_GM_group4 = RT_pairsplit_group4 %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    RT = mean(RT))
+kable(RT_pairsplit_GM_group4, caption = "ExeRT depending on fast vs slow preparation", digits = 2) 
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+RT_pairsplit_wide_group4 = RT_pairsplit_group4 %>%
+  dcast(participant ~fasterPreparation, value.var = "RT") %>%
+  DropNA()
+
+RT_pairsplit_pw_group4 = TES(RT_pairsplit_wide_group4$`FALSE`, RT_pairsplit_wide_group4$`TRUE`, paired=TRUE)
+
+row.names(RT_pairsplit_pw_group4) = c('RT')
+kable(RT_pairsplit_pw_group4, caption = "Paired-samples t-test on exeRT", digits = 2) 
+```
+
+
+\newpage
+#### Pair-split analysis for 17-19 year olds (age group 5)
+```{r Kids group 5 pair-split analysis, warning=FALSE, message=FALSE, echo=FALSE}
+input_Kidsn_group5 = input_Kidsn %>%
+  filter(age > 11)
+
+
+input_Kidsn_pairsplit_group5 = input_Kidsn_group5 %>% 
+  arrange(participant, block) %>% 
+  mutate(pair = ceiling(block/2)) %>% # create pair number based on block number; block 1 and 2 will be pair 1, etc.
+  group_by(participant, pair) %>%
+  mutate(n_block_in_pair = n(), # count number of blocks in a pair; due to missing data, some 'pair's have only one block
+         Pair_PrepRT = mean(rt), # calculate the mean prepRT of each pair
+         fasterPreparation = (rt < Pair_PrepRT), # determine whether each block is the one with shorter prepRT in the pair
+         diff = rt - Pair_PrepRT) %>% # calculate the difference between raw prepRT and the average of each pair 
+  filter(n_block_in_pair == 2, # select only pairs that have two blocks
+         diff != 0) # select pairs where the prepRT of the two blocks differ 
+
+
+# check: each participant should have equal number of faster and slower blocks
+#table(input_Kidsn_pairsplit_group5$participant, input_Kidsn_pairsplit_group5$fasterPreparation)
+
+
+# calculate mean prepRT depending on pair-split
+prepRT_pairsplit_group5 = input_Kidsn_pairsplit_group5 %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(prepRT = mean(rt)) %>%
+  mutate(age_group = "17-19")
+
+
+prepRT_pairsplit_GM_group5= prepRT_pairsplit_group5 %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    prepRT = mean(prepRT))
+kable(prepRT_pairsplit_GM_group5, caption = "PrepRT for fast vs slow preparation", digits = 2) 
+
+
+# calculate mean ACC depending on pair-split
+ACC_pairsplit_group5 = input_Kidsn_pairsplit_group5 %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(ACC = mean(acc_go1)) %>%
+  mutate(age_group = "17-19")
+
+ACC_pairsplit_GM_group5 = ACC_pairsplit_group5 %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    ACC = mean(ACC))
+kable(ACC_pairsplit_GM_group5, caption = "ACC depending on fast vs slow preparation", digits = 2) 
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+ACC_pairsplit_wide_group5 = ACC_pairsplit_group5 %>%
+  dcast(participant ~fasterPreparation, value.var = "ACC") %>%
+  DropNA()
+
+ACC_pairsplit_pw_group5 = TES(ACC_pairsplit_wide_group5$`FALSE`, ACC_pairsplit_wide_group5$`TRUE`, paired=TRUE)
+
+row.names(ACC_pairsplit_pw_group5) = c('ACC')
+kable(ACC_pairsplit_pw_group5, caption = "Paired-samples t-test on ACC", digits = 2) 
+
+
+# table ACC
+ACC_pairsplit_table_group5 = ACC_pairsplit_group5 %>%
+  group_by(fasterPreparation) %>%
+  summarise(mean.ACC = mean(ACC, na.rm = TRUE),
+            sd.ACC = sd(ACC, na.rm = TRUE),
+            n.ACC = n()) %>%
+  mutate(se.ACC = sd.ACC / sqrt(n.ACC),
+         lower.ci.ACC = mean.ACC - qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC,
+         upper.ci.ACC = mean.ACC + qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC)
+kable(ACC_pairsplit_table_group5, caption = "ACC depending on fast vs slow preparation", digits = 2) 
+
+
+# calculate mean exeRT depending on pair-split
+RT_pairsplit_group5 = input_Kidsn_pairsplit_group5 %>%
+  filter(rt > 100) %>%
+  filter(rt < 10000) %>%
+  filter(rt_go1 > 100) %>% 
+  filter(rt_go1 < 10000) %>%
+  filter(acc_go1 == "1") %>%
+  group_by(participant, fasterPreparation) %>%
+  summarise(RT = mean(rt_go1)) %>%
+  mutate(age_group = "17-19")
+
+RT_pairsplit_GM_group5 = RT_pairsplit_group5 %>%
+  group_by(fasterPreparation) %>%
+  summarise(
+    RT = mean(RT))
+kable(RT_pairsplit_GM_group5, caption = "ExeRT depending on fast vs slow preparation", digits = 2) 
+
+
+# paired-samples t-test
+source("pairwise_comparisons.R")
+RT_pairsplit_wide_group5 = RT_pairsplit_group5 %>%
+  dcast(participant ~fasterPreparation, value.var = "RT") %>%
+  DropNA()
+
+RT_pairsplit_pw_group5 = TES(RT_pairsplit_wide_group5$`FALSE`, RT_pairsplit_wide_group5$`TRUE`, paired=TRUE)
+
+row.names(RT_pairsplit_pw_group5) = c('RT')
+kable(RT_pairsplit_pw_group5, caption = "Paired-samples t-test on exeRT", digits = 2) 
+```
+
+
+\newpage
+#### Plots
+```{r Kids plots, warning=FALSE, message=FALSE, echo=FALSE}
+# get prepRT data ready for plotting
+prepRT_forplot = rbind(prepRT_pairsplit, prepRT_pairsplit_group1, prepRT_pairsplit_group2, prepRT_pairsplit_group3, prepRT_pairsplit_group4, prepRT_pairsplit_group5)
+
+prepRT_forplot = prepRT_forplot %>%
+  mutate(Preparation = ifelse(fasterPreparation == "TRUE", "short", "long"))
+
+
+prepRT_GM_forplot = prepRT_forplot %>%
+  group_by(age_group, Preparation) %>%
+  summarise(mean.prepRT = mean(prepRT, na.rm = TRUE),
+            sd.prepRT = sd(prepRT, na.rm = TRUE),
+            n.prepRT = n()) %>%
+  mutate(se.prepRT = sd.prepRT / sqrt(n.prepRT),
+         lower.ci.prepRT = mean.prepRT - qt(1 - (0.05 / 2), n.prepRT - 1) * se.prepRT,
+         upper.ci.prepRT = mean.prepRT + qt(1 - (0.05 / 2), n.prepRT - 1) * se.prepRT)
+#kable(prepRT_GM_forplot, caption = "PrepRT depending on fast vs slow preparation across age groups", digits = 2) 
+
+
+level_order_age = c("4-19", "4-5", "6-7", "8-9", "10-11", "17-19")
+
+
+# plot prepRT
+plot_prepRT_GM = ggplot(prepRT_GM_forplot, aes(x=factor(age_group, level = level_order_age), y=mean.prepRT, group=Preparation)) +
+  geom_errorbar(aes(ymin=lower.ci.prepRT, ymax=upper.ci.prepRT), width=.1, color="black", position = position_dodge(width=0.3)) +
+  #geom_line(color="black", width=2) +
+  geom_point(aes(shape=Preparation), color="black", size = 2, position = position_dodge(width=0.3), stat="identity") +
+  
+  scale_y_continuous(breaks = c(1000,2000,3000,4000,5000,6000), limits = c(1000,6200)) +
+  
+  xlab("Age") +
+  ylab("Preparation RT (ms)") + 
+  
+  ggtitle("Reanalysis", subtitle = "Preparation phase") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5)) + 
+    
+  theme(text = element_text(face = "plain", size = 8)) +
+  theme(axis.text.y = element_text(size = 8, color = "black")) +
+  theme(axis.text.x = element_text(size = 8, color = "black", angle = 0, hjust = 0.5)) +
+  theme(axis.title.x = element_text(face = "plain", size = 8)) +
+  theme(axis.title.x = element_text(margin = margin(t = 4, r = 0, b = 0, l = 00))) +
+  theme(axis.title.y = element_text(face = "plain", size = 8)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 4, b = 0, l = 0))) +
+  theme(axis.ticks = element_line(size = 1)) +
+  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  
+  theme(legend.title = element_text(color="black", size = 8, face="plain")) +
+  theme(legend.text = element_text(color="black", size = 8, face = "plain")) +
+  theme(legend.box.background = element_blank()) +
+  theme(legend.key = element_blank()) +
+  #theme(legend.position=c(.87, .87)) 
+  theme(legend.justification=c(.8,0), legend.position=c(0.33,0.0033)) 
+        
+plot_prepRT_GM
+
+
+# get ACC data ready for plotting
+ACC_forplot = rbind(ACC_pairsplit, ACC_pairsplit_group1, ACC_pairsplit_group2, ACC_pairsplit_group3, ACC_pairsplit_group4, ACC_pairsplit_group5)
+
+ACC_forplot = ACC_forplot %>%
+  mutate(Preparation = ifelse(fasterPreparation == "TRUE", "short", "long"))
+
+
+ACC_GM_forplot = ACC_forplot %>%
+  group_by(age_group, Preparation) %>%
+  summarise(mean.ACC = mean(ACC, na.rm = TRUE),
+            sd.ACC = sd(ACC, na.rm = TRUE),
+            n.ACC = n()) %>%
+  mutate(se.ACC = sd.ACC / sqrt(n.ACC),
+         lower.ci.ACC = mean.ACC - qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC,
+         upper.ci.ACC = mean.ACC + qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC)
+#kable(ACC_GM_forplot, caption = "ACC depending on fast vs slow preparation across age groups", digits = 2) 
+
+
+level_order_age2 = c("4-19", "4-5", "6-7", "8-9", "10-11", "17-19")
+
+
+# plot ACC
+plot_ACC_GM = ggplot(ACC_GM_forplot, aes(x=factor(age_group, level = level_order_age2), y=mean.ACC, group=Preparation)) +
+  geom_errorbar(aes(ymin=lower.ci.ACC, ymax=upper.ci.ACC), width=.1, color="black", position = position_dodge(width=0.3)) +
+  #geom_line(color="black", width=2) +
+  geom_point(aes(shape=Preparation), color="black", size = 2, position = position_dodge(width=0.3), stat="identity") +
+  
+  scale_y_continuous(breaks = c(0.6,0.7,0.8,0.9,1.0), limits = c(0.6,1)) +
+  
+  xlab("Age") +
+  ylab("Accuracy") + 
+  
+  ggtitle("Reanalysis", subtitle = "Go phase") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5)) + 
+    
+  theme(text = element_text(face = "plain", size = 8)) +
+  theme(axis.text.y = element_text(size = 8, color = "black")) +
+  theme(axis.text.x = element_text(size = 8, color = "black", angle = 0, hjust = 0.5)) +
+  theme(axis.title.x = element_text(face = "plain", size = 8)) +
+  theme(axis.title.x = element_text(margin = margin(t = 4, r = 0, b = 0, l = 00))) +
+  theme(axis.title.y = element_text(face = "plain", size = 8)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 4, b = 0, l = 0))) +
+  theme(axis.ticks = element_line(size = 1)) +
+  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  
+  theme(legend.title = element_text(color="black", size = 8, face="plain")) +
+  theme(legend.text = element_text(color="black", size = 8, face = "plain")) +
+  theme(legend.box.background = element_blank()) +
+  theme(legend.key = element_blank()) +
+  #theme(legend.position=c(.87, .87))
+  theme(legend.justification=c(.8,0), legend.position=c(0.33,0.0033)) 
+        
+plot_ACC_GM
+
+
+# get Go RT data ready for plotting
+RT_forplot = rbind(RT_pairsplit, RT_pairsplit_group1, RT_pairsplit_group2, RT_pairsplit_group3, RT_pairsplit_group4, RT_pairsplit_group5)
+
+RT_forplot = RT_forplot %>%
+  mutate(Preparation = ifelse(fasterPreparation == "TRUE", "short", "long"))
+
+
+RT_GM_forplot = RT_forplot %>%
+  group_by(age_group, Preparation) %>%
+  summarise(mean.RT = mean(RT, na.rm = TRUE),
+            sd.RT = sd(RT, na.rm = TRUE),
+            n.RT = n()) %>%
+  mutate(se.RT = sd.RT / sqrt(n.RT),
+         lower.ci.RT = mean.RT - qt(1 - (0.05 / 2), n.RT - 1) * se.RT,
+         upper.ci.RT = mean.RT + qt(1 - (0.05 / 2), n.RT - 1) * se.RT)
+#kable(RT_GM_forplot, caption = "Go RT depending on fast vs slow preparation across age groups", digits = 2) 
+
+
+level_order_age2 = c("4-19", "4-5", "6-7", "8-9", "10-11", "17-19")
+
+
+# plot prepRT
+plot_RT_GM = ggplot(RT_GM_forplot, aes(x=factor(age_group, level = level_order_age2), y=mean.RT, group=Preparation)) +
+  geom_errorbar(aes(ymin=lower.ci.RT, ymax=upper.ci.RT), width=.1, color="black", position = position_dodge(width=0.3)) +
+  #geom_line(color="black", width=2) +
+  geom_point(aes(shape=Preparation), color="black", size = 2, position = position_dodge(width=0.3), stat="identity") +
+  
+  scale_y_continuous(breaks = c(250, 500, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500), limits = c(0,2700)) +
+  
+  xlab("Age") +
+  ylab("Go RT (ms)") + 
+  
+  ggtitle("Reanalysis", subtitle = "Go phase") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5)) + 
+    
+  theme(text = element_text(face = "plain", size = 8)) +
+  theme(axis.text.y = element_text(size = 8, color = "black")) +
+  theme(axis.text.x = element_text(size = 8, color = "black", angle = 0, hjust = 0.5)) +
+  theme(axis.title.x = element_text(face = "plain", size = 8)) +
+  theme(axis.title.x = element_text(margin = margin(t = 4, r = 0, b = 0, l = 00))) +
+  theme(axis.title.y = element_text(face = "plain", size = 8)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 4, b = 0, l = 0))) +
+  theme(axis.ticks = element_line(size = 1)) +
+  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  
+  theme(legend.title = element_text(color="black", size = 8, face="plain")) +
+  theme(legend.text = element_text(color="black", size = 8, face = "plain")) +
+  theme(legend.box.background = element_blank()) +
+  theme(legend.key = element_blank()) +
+  #theme(legend.position=c(.87, .87))
+  theme(legend.justification=c(.8,0), legend.position=c(0.33,0.0033)) 
+
+plot_RT_GM
+
+
+# combine both plots
+bigplot_reanalysis <- plot_grid(plot_prepRT_GM, plot_ACC_GM, plot_RT_GM,
+ ncol = 3,
+ rel_heights = c(1,1,1),
+ rel_widths = c(1,1,1),
+ labels = c("a","b","c"),
+ label_size = 12,
+ align = "v"
+)
+bigplot_reanalysis
+
+ggsave("Reanalysis_Pairsplit.png", width = 20, height = 10, units = "cm")
+```
