@@ -1,0 +1,1040 @@
+---
+title: "Comparison between Experiments 2 and 3"
+author: "Christina Reimer"
+date: "2020 08 28"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+
+```{r setup, include=TRUE, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r load libraries, warning=FALSE, message=FALSE, echo=FALSE}
+library(afex)
+library(BayesFactor)
+library(car)
+library(cowplot)
+library(DataCombine)
+library(data.table)
+library(extrafont)
+library(ez)
+library(ggpubr)
+library(gridExtra)
+library(knitr)
+library(tidyverse)
+```
+
+
+```{r load data betweenExp, warning=FALSE, echo=FALSE}
+# clear directory
+rm(list=ls()) 
+
+
+# open files Exp 2
+input_Exp2 = data.frame()
+
+files <- dir(path = "../../Data/Raw", pattern = "CIA_Preparation_Exp2_*")
+
+for (i in files) {
+  
+  tmp <- read_csv(file = file.path("../../Data/Raw/", i), col_types = cols())
+  tmp$id = i
+  
+  # add the files to the data frame
+  input_Exp2 = rbind (input_Exp2, tmp)
+  rm(tmp)
+}
+
+
+# convert some factor variables to numeric variables
+input_Exp2$block_number = as.numeric(as.character(input_Exp2$block_number))
+input_Exp2$prepRT = as.numeric(as.character(input_Exp2$prepRT))
+input_Exp2$rt = as.numeric(as.character(input_Exp2$rt))
+
+
+# add numeric equivalent for correct variable; correct = TRUE = 1, correct = FALSE = 0
+input_Exp2 = input_Exp2 %>%
+  mutate(acc = correct)
+input_Exp2$acc = as.integer(as.logical(input_Exp2$acc)) 
+
+
+# filter questionnaire data for the analysis
+input_Exp2 = input_Exp2 %>%
+  filter(block_number <= 96)
+
+
+# block_type: rename 1 to 25%, rename 0 to 100%-image-alone
+# letter_block: rename 0 to image-alone, rename 1 to image-and-letter
+input_Exp2$block_type[input_Exp2$block_type == "25"] = "25%"
+input_Exp2$block_type[input_Exp2$block_type == "75"] = "75%"
+input_Exp2$letter_block[input_Exp2$letter_block == "0"] = "image-alone"
+input_Exp2$letter_block[input_Exp2$letter_block == "1"] = "image-and-letter"
+
+
+# rename prolific_ID into participant
+names(input_Exp2)[1] = "participant"
+
+
+# add Experiment name
+input_Exp2 = input_Exp2 %>%
+  mutate(experiment = "2")
+
+
+
+
+# open files Exp 3
+input_Exp3 = data.frame()
+
+files <- dir(path = "../../Data/Raw", pattern = "CIA_Preparation_Exp3_*")
+
+for (i in files) {
+  
+  tmp <- read_csv(file = file.path("../../Data/Raw/", i), col_types = cols())
+  tmp$id = i
+  
+  # add the files to the data frame
+  input_Exp3 = rbind (input_Exp3, tmp)
+  rm(tmp)
+}
+
+
+# convert some factor variables to numeric variables
+input_Exp3$block_number = as.numeric(as.character(input_Exp3$block_number))
+input_Exp3$prepRT = as.numeric(as.character(input_Exp3$prepRT))
+input_Exp3$rt = as.numeric(as.character(input_Exp3$rt))
+
+
+# add numeric equivalent for correct variable; correct = TRUE = 1, correct = FALSE = 0
+input_Exp3 = input_Exp3 %>%
+  mutate(acc = correct)
+input_Exp3$acc = as.integer(as.logical(input_Exp3$acc)) 
+
+
+# filter questionnaire data for the analysis
+input_Exp3 = input_Exp3 %>%
+  filter(block_number <= 96)
+
+
+# block_type: rename 1 to 25%, rename 0 to 100%-image-alone
+# letter_block: rename 0 to image-alone, rename 1 to image-and-letter
+input_Exp3$block_type[input_Exp3$block_type == "25"] = "25%"
+input_Exp3$block_type[input_Exp3$block_type == "75"] = "75%"
+input_Exp3$letter_block[input_Exp3$letter_block == "0"] = "image-alone"
+input_Exp3$letter_block[input_Exp3$letter_block == "1"] = "image-and-letter"
+
+
+# rename prolific_ID into participant
+names(input_Exp3)[1] = "participant"
+
+
+# remove columns stimulus_html and image_position
+input_Exp3$stimulus_html <- NULL
+input_Exp3$image_position <- NULL
+
+
+# add Experiment name
+input_Exp3 = input_Exp3 %>%
+  mutate(experiment = "3")
+
+
+### combine Experiments 2 and 3
+input_between = rbind(input_Exp2, input_Exp3)
+```
+
+
+```{r betweenExp prepRT analysis, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+# remove outliers and calculate prepRT depending on conditions and experiments
+input_between_prepRT = input_between %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(id, block_type, experiment) %>%
+  summarise(prepRT = mean(prepRT)) 
+
+
+input_between_prepRT_GM = input_between_prepRT %>%
+  group_by(block_type, experiment) %>%
+  summarise(
+    prepRT = mean(prepRT))
+kable(input_between_prepRT_GM, caption = "PrepRT depending on conditions and experiments", digits = 2) 
+
+
+input_between_prepRT_GM_con = input_between_prepRT %>%
+  group_by(block_type) %>%
+  summarise(
+    prepRT = mean(prepRT))
+kable(input_between_prepRT_GM_con, caption = "PrepRT depending on conditions", digits = 2) 
+
+
+input_between_prepRT_GM_exp = input_between_prepRT %>%
+  group_by(experiment) %>%
+  summarise(
+    prepRT = mean(prepRT))
+kable(input_between_prepRT_GM_exp, caption = "PrepRT depending on experiments", digits = 2) 
+
+
+# ANOVA prepRT
+input_between_prepRT$id = as.factor(input_between_prepRT$id)
+input_between_prepRT$block_type = as.factor(input_between_prepRT$block_type)
+input_between_prepRT$experiment = as.factor(input_between_prepRT$experiment)
+
+stats_prepRT = aov_ez("id", "prepRT", input_between_prepRT, within = "block_type", between = "experiment",  
+                                  anova_table =list(correction = "none", es = "pes")) 
+kable(nice(stats_prepRT), caption = "PrepRT compared between conditions and experiments", digits = 2) 
+
+
+# t-test main effect block_type 
+source("pairwise_comparisons.R")
+input_between_prepRT_wide = input_between_prepRT %>%
+  dcast(id ~ block_type, value.var = "prepRT")
+
+input_between_prepRT_wide_pw = TES(input_between_prepRT_wide$`25%`, input_between_prepRT_wide$`75%`, paired=TRUE) 
+
+row.names(input_between_prepRT_wide_pw) = c('PrepRT')
+kable(input_between_prepRT_wide_pw, caption = "PrepRT compared between conditions", digits = 2)
+
+
+# t-test main effect experiment
+input_between_prepRT_old = input_between_prepRT %>%
+  filter(experiment == "2") %>%
+  group_by(id) %>%
+  summarise(prepRT = mean(prepRT)) %>%
+  mutate(old_task = prepRT)
+
+input_between_prepRT_new = input_between_prepRT %>%
+  filter(experiment == "3") %>%
+  group_by(id) %>%
+  summarise(prepRT = mean(prepRT)) %>%
+  mutate(new_task = prepRT)
+
+input_between_prepRT_old$new_task = input_between_prepRT_new$new_task
+
+input_between_prepRT_old_pw = TES(input_between_prepRT_old$new_task, input_between_prepRT_old$old_task, paired=FALSE) 
+row.names(input_between_prepRT_old_pw) = c('PrepRT')
+kable(input_between_prepRT_old_pw, caption = "PrepRT compared between experiments", digits = 2)
+
+
+# t-test interaction
+input_between_prepRT_wide2 = input_between_prepRT_wide %>%
+  mutate(diff_prepRT = input_between_prepRT_wide$`75%` - input_between_prepRT_wide$`25%`) %>%
+  mutate(mean_prepRT = ((input_between_prepRT_wide$`75%` + input_between_prepRT_wide$`25%`)/2)) %>%
+  mutate(experiment = ifelse(grepl("CIA_Preparation_Exp2_", id),  "2", "3"))
+# save as csv for JASP
+#write.csv(input_between_prepRT_wide2,'ComparisonExp2Exp3_prepRT.csv')
+
+prepRT_same_SRmapping = input_between_prepRT_wide2 %>%
+  filter(experiment == "2") %>%
+  mutate(same_mapping = diff_prepRT)
+
+prepRT_new_SRmapping = input_between_prepRT_wide2 %>%
+  filter(experiment == "3") %>%
+  mutate(new_mapping = diff_prepRT)
+
+prepRT_same_SRmapping$new_mapping = prepRT_new_SRmapping$new_mapping
+
+prepRT_same_SRmapping_pw = TES(prepRT_same_SRmapping$same_mapping, prepRT_same_SRmapping$new_mapping, paired=FALSE) 
+row.names(prepRT_same_SRmapping_pw) = c('PrepRT')
+kable(prepRT_same_SRmapping_pw, caption = "PrepRT differences compared between experiments", digits = 2)
+``` 
+
+
+```{r betweenexperiment ACC and exeRT image-alone trials, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+# ACC
+# remove outliers and calculate ACC depending on conditions and experiments
+input_between_ACC_imageonly = input_between %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(letter_block == 0) %>%
+  group_by(id, block_type, experiment) %>%
+  summarise(ACC = mean(acc)) 
+
+
+input_between_ACC_imageonly_GM = input_between_ACC_imageonly %>%
+  group_by(block_type, experiment) %>%
+  summarise(
+    ACC = mean(ACC))
+kable(input_between_ACC_imageonly_GM, caption = "ACC on image-alone trials depending on conditions and experiments", digits = 2) 
+
+
+input_between_ACC_imageonly_GM_con = input_between_ACC_imageonly %>%
+  group_by(block_type) %>%
+  summarise(
+    ACC = mean(ACC))
+kable(input_between_ACC_imageonly_GM_con, caption = "ACC on image-alone trials depending on conditions", digits = 2) 
+
+
+input_between_ACC_imageonly_GM_exp = input_between_ACC_imageonly %>%
+  group_by(experiment) %>%
+  summarise(
+    ACC = mean(ACC))
+kable(input_between_ACC_imageonly_GM_exp, caption = "ACC on image-alone trials depending on experiments", digits = 2) 
+
+
+# ANOVA ACC
+input_between_ACC_imageonly$id = as.factor(input_between_ACC_imageonly$id)
+input_between_ACC_imageonly$block_type = as.factor(input_between_ACC_imageonly$block_type)
+input_between_ACC_imageonly$experiment = as.factor(input_between_ACC_imageonly$experiment)
+
+stats_ACC_imageonly = aov_ez("id", "ACC", input_between_ACC_imageonly, within = "block_type", between = "experiment",  
+                                  anova_table =list(correction = "none", es = "pes")) 
+kable(nice(stats_ACC_imageonly), caption = "ACC on image-alone trials compared between conditions and experiments", digits = 2) 
+
+
+# t-test main effect block_type 
+source("pairwise_comparisons.R")
+input_between_ACC_imageonly_wide = input_between_ACC_imageonly %>%
+  dcast(id ~ block_type, value.var = "ACC")
+
+input_between_ACC_imageonly_wide_pw = TES(input_between_ACC_imageonly_wide$`25%`, input_between_ACC_imageonly_wide$`75%`, paired=TRUE) 
+
+row.names(input_between_ACC_imageonly_wide_pw) = c('ACC')
+kable(input_between_ACC_imageonly_wide_pw, caption = "ACC on image-alone trials compared between conditions", digits = 2)
+
+
+# t-test main effect experiment
+input_between_ACC_imageonly_old = input_between_ACC_imageonly %>%
+  filter(experiment == "2") %>%
+  group_by(id) %>%
+  summarise(ACC = mean(ACC)) %>%
+  mutate(old_task = ACC)
+
+input_between_ACC_imageonly_new = input_between_ACC_imageonly %>%
+  filter(experiment == "3") %>%
+  group_by(id) %>%
+  summarise(ACC = mean(ACC)) %>%
+  mutate(new_task = ACC)
+
+input_between_ACC_imageonly_old$new_task = input_between_ACC_imageonly_new$new_task
+
+input_between_ACC_imageonly_old_pw = TES(input_between_ACC_imageonly_old$new_task, input_between_ACC_imageonly_old$old_task, paired=FALSE) 
+row.names(input_between_ACC_imageonly_old_pw) = c('ACC')
+kable(input_between_ACC_imageonly_old_pw, caption = "ACC on image-alone trials compared between experiments", digits = 2)
+
+
+# t-test interaction
+input_between_ACC_imageonly_wide2 = input_between_ACC_imageonly_wide %>%
+  mutate(diff_ACC = input_between_ACC_imageonly_wide$`75%` - input_between_ACC_imageonly_wide$`25%`) %>%
+  mutate(mean_ACC = ((input_between_ACC_imageonly_wide$`75%` + input_between_ACC_imageonly_wide$`25%`)/2)) %>%
+  mutate(experiment = ifelse(grepl("CIA_Preparation_Exp2_", id),  "2", "3"))
+# save as csv for JASP
+#write.csv(input_between_ACC_imageonly_wide2,'ComparisonExp2Exp3_ACC_imagealone.csv')
+
+ACC_imageonly_same_SRmapping = input_between_ACC_imageonly_wide2 %>%
+  filter(experiment == "2") %>%
+  mutate(same_mapping = diff_ACC)
+
+ACC_imageonly_new_SRmapping = input_between_ACC_imageonly_wide2 %>%
+  filter(experiment == "3") %>%
+  mutate(new_mapping = diff_ACC)
+
+ACC_imageonly_same_SRmapping$new_mapping = ACC_imageonly_new_SRmapping$new_mapping
+
+ACC_imageonly_same_SRmapping_pw = TES(ACC_imageonly_same_SRmapping$same_mapping, ACC_imageonly_same_SRmapping$new_mapping, paired=FALSE) 
+row.names(ACC_imageonly_same_SRmapping_pw) = c('ACC')
+kable(ACC_imageonly_same_SRmapping_pw, caption = "ACC differences on image-alone trials compared between experiments", digits = 2)
+
+
+# correct exeRT
+# remove outliers and calculate correct exeRT depending on conditions and experiments
+input_between_RT_imageonly = input_between %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(correct == "true") %>%
+  filter(letter_block == 0) %>%
+  group_by(id, block_type, experiment) %>%
+  summarise(RT = mean(rt))
+
+
+input_between_RT_imageonly_GM = input_between_RT_imageonly %>%
+  group_by(block_type, experiment) %>%
+  summarise(
+    RT = mean(RT))
+kable(input_between_RT_imageonly_GM, caption = "ExeRT on image-alone trials depending on conditions and experiments", digits = 2) 
+
+
+input_between_RT_imageonly_GM_con = input_between_RT_imageonly %>%
+  group_by(block_type) %>%
+  summarise(
+    RT = mean(RT))
+kable(input_between_RT_imageonly_GM_con, caption = "ExeRT on image-alone trials depending on conditions", digits = 2) 
+
+
+input_between_RT_imageonly_GM_exp = input_between_RT_imageonly %>%
+  group_by(experiment) %>%
+  summarise(
+    RT = mean(RT))
+kable(input_between_RT_imageonly_GM_exp, caption = "ExeRT on image-alone trials depending on experiments", digits = 2) 
+
+
+# ANOVA exeRT
+input_between_RT_imageonly$id = as.factor(input_between_RT_imageonly$id)
+input_between_RT_imageonly$block_type = as.factor(input_between_RT_imageonly$block_type)
+input_between_RT_imageonly$experiment = as.factor(input_between_RT_imageonly$experiment)
+
+stats_RT_imageonly = aov_ez("id", "RT", input_between_RT_imageonly, within = "block_type", between = "experiment",  
+                                  anova_table =list(correction = "none", es = "pes")) 
+kable(nice(stats_RT_imageonly), caption = "ExeRT on image-alone trials compared between conditions and experiments", digits = 2) 
+
+
+# t-test main effect block_type 
+source("pairwise_comparisons.R")
+input_between_RT_imageonly_wide = input_between_RT_imageonly %>%
+  dcast(id ~ block_type, value.var = "RT")
+
+input_between_RT_imageonly_wide_pw = TES(input_between_RT_imageonly_wide$`25%`, input_between_RT_imageonly_wide$`75%`, paired=TRUE) 
+
+row.names(input_between_RT_imageonly_wide_pw) = c('RT')
+kable(input_between_RT_imageonly_wide_pw, caption = "RT on image-alone trials compared between conditions", digits = 2)
+
+
+# t-test main effect experiment
+input_between_RT_imageonly_old = input_between_RT_imageonly %>%
+  filter(experiment == "2") %>%
+  group_by(id) %>%
+  summarise(RT = mean(RT)) %>%
+  mutate(old_task = RT)
+
+input_between_RT_imageonly_new = input_between_RT_imageonly %>%
+  filter(experiment == "3") %>%
+  group_by(id) %>%
+  summarise(RT = mean(RT)) %>%
+  mutate(new_task = RT)
+
+input_between_RT_imageonly_old$new_task = input_between_RT_imageonly_new$new_task
+
+input_between_RT_imageonly_old_pw = TES(input_between_RT_imageonly_old$new_task, input_between_RT_imageonly_old$old_task, paired=FALSE) 
+row.names(input_between_RT_imageonly_old_pw) = c('RT')
+kable(input_between_RT_imageonly_old_pw, caption = "RT on image-alone trials compared between experiments", digits = 2)
+
+
+# t-test interaction
+input_between_RT_imageonly_wide2 = input_between_RT_imageonly_wide %>%
+  mutate(diff_RT = input_between_RT_imageonly_wide$`75%` - input_between_RT_imageonly_wide$`25%`) %>%
+  mutate(mean_RT = ((input_between_RT_imageonly_wide$`75%` + input_between_RT_imageonly_wide$`25%`)/2)) %>%
+  mutate(experiment = ifelse(grepl("CIA_Preparation_Exp2_", id),  "2", "3"))
+# save as csv for JASP
+#write.csv(input_between_RT_imageonly_wide2,'ComparisonExp2Exp3_RT_imagealone.csv')
+
+RT_imageonly_same_SRmapping = input_between_RT_imageonly_wide2 %>%
+  filter(experiment == "2") %>%
+  mutate(same_mapping = diff_RT)
+
+RT_imageonly_new_SRmapping = input_between_RT_imageonly_wide2 %>%
+  filter(experiment == "3") %>%
+  mutate(new_mapping = diff_RT)
+
+RT_imageonly_same_SRmapping$new_mapping = RT_imageonly_new_SRmapping$new_mapping
+
+RT_imageonly_same_SRmapping_pw = TES(RT_imageonly_same_SRmapping$same_mapping, RT_imageonly_same_SRmapping$new_mapping, paired=FALSE) 
+row.names(RT_imageonly_same_SRmapping_pw) = c('RT')
+kable(RT_imageonly_same_SRmapping_pw, caption = "RT differences on image-alone trials compared between experiments", digits = 2)
+
+```
+
+
+```{r betweenexperiment ACC and exeRT image-and-letter trials, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+# ACC
+# remove outliers and calculate ACC depending on conditions and experiments
+input_between_ACC_imageletter = input_between %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(letter_block == 1) %>%
+  group_by(id, block_type, experiment) %>%
+  summarise(ACC = mean(acc)) 
+
+
+input_between_ACC_imageletter_GM = input_between_ACC_imageletter %>%
+  group_by(block_type, experiment) %>%
+  summarise(
+    ACC = mean(ACC))
+kable(input_between_ACC_imageletter_GM, caption = "ACC on image-and-letter trials depending on conditions and experiments", digits = 2) 
+
+
+input_between_ACC_imageletter_GM_con = input_between_ACC_imageletter %>%
+  group_by(block_type) %>%
+  summarise(
+    ACC = mean(ACC))
+kable(input_between_ACC_imageletter_GM_con, caption = "ACC on image-and-letter trials depending on conditions", digits = 2) 
+
+
+input_between_ACC_imageletter_GM_exp = input_between_ACC_imageletter %>%
+  group_by(experiment) %>%
+  summarise(
+    ACC = mean(ACC))
+kable(input_between_ACC_imageletter_GM_exp, caption = "ACC on image-and-letter trials depending on experiments", digits = 2) 
+
+
+# ANOVA ACC
+input_between_ACC_imageletter$id = as.factor(input_between_ACC_imageletter$id)
+input_between_ACC_imageletter$block_type = as.factor(input_between_ACC_imageletter$block_type)
+input_between_ACC_imageletter$experiment = as.factor(input_between_ACC_imageletter$experiment)
+
+stats_ACC_imageletter = aov_ez("id", "ACC", input_between_ACC_imageletter, within = "block_type", between = "experiment",  
+                                  anova_table =list(correction = "none", es = "pes")) 
+kable(nice(stats_ACC_imageletter), caption = "ACC on image-and-letter trials compared between conditions and experiments", digits = 2) 
+
+
+# t-test main effect block_type 
+source("pairwise_comparisons.R")
+input_between_ACC_imageletter_wide = input_between_ACC_imageletter %>%
+  dcast(id ~ block_type, value.var = "ACC")
+
+input_between_ACC_imageletter_wide_pw = TES(input_between_ACC_imageletter_wide$`25%`, input_between_ACC_imageletter_wide$`75%`, paired=TRUE) 
+
+row.names(input_between_ACC_imageletter_wide_pw) = c('ACC')
+kable(input_between_ACC_imageletter_wide_pw, caption = "ACC on image-and-letter trials compared between conditions", digits = 2)
+
+
+# t-test main effect experiment
+input_between_ACC_imageletter_old = input_between_ACC_imageletter %>%
+  filter(experiment == "2") %>%
+  group_by(id) %>%
+  summarise(ACC = mean(ACC)) %>%
+  mutate(old_task = ACC)
+
+input_between_ACC_imageletter_new = input_between_ACC_imageletter %>%
+  filter(experiment == "3") %>%
+  group_by(id) %>%
+  summarise(ACC = mean(ACC)) %>%
+  mutate(new_task = ACC)
+
+input_between_ACC_imageletter_old$new_task = input_between_ACC_imageletter_new$new_task
+
+input_between_ACC_imageletter_old_pw = TES(input_between_ACC_imageletter_old$new_task, input_between_ACC_imageletter_old$old_task, paired=FALSE) 
+row.names(input_between_ACC_imageletter_old_pw) = c('ACC')
+kable(input_between_ACC_imageletter_old_pw, caption = "ACC on image-and-letter trials compared between experiments", digits = 2)
+
+
+# t-test interaction
+input_between_ACC_imageletter_wide2 = input_between_ACC_imageletter_wide %>%
+  mutate(diff_ACC = input_between_ACC_imageletter_wide$`75%` - input_between_ACC_imageletter_wide$`25%`) %>%
+  mutate(mean_ACC = ((input_between_ACC_imageletter_wide$`75%` + input_between_ACC_imageletter_wide$`25%`)/2)) %>%
+  mutate(experiment = ifelse(grepl("CIA_Preparation_Exp2_", id),  "2", "3"))
+# save as csv for JASP
+#write.csv(input_between_ACC_imageletter_wide2,'ComparisonExp2Exp3_ACC_imageletter.csv')
+
+ACC_imageletter_same_SRmapping = input_between_ACC_imageletter_wide2 %>%
+  filter(experiment == "2") %>%
+  mutate(same_mapping = diff_ACC)
+
+ACC_imageletter_new_SRmapping = input_between_ACC_imageletter_wide2 %>%
+  filter(experiment == "3") %>%
+  mutate(new_mapping = diff_ACC)
+
+ACC_imageletter_same_SRmapping$new_mapping = ACC_imageletter_new_SRmapping$new_mapping
+
+ACC_imageletter_same_SRmapping_pw = TES(ACC_imageletter_same_SRmapping$same_mapping, ACC_imageletter_same_SRmapping$new_mapping, paired=FALSE) 
+row.names(ACC_imageletter_same_SRmapping_pw) = c('ACC')
+kable(ACC_imageletter_same_SRmapping_pw, caption = "ACC differences on image-and-letter trials compared between experiments", digits = 2)
+
+
+
+# correct exeRT
+# remove outliers and calculate correct exeRT depending on conditions and experiments
+input_between_RT_imageletter = input_between %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(correct == "true") %>%
+  filter(letter_block == 1) %>%
+  group_by(id, block_type, experiment) %>%
+  summarise(RT = mean(rt))
+
+
+input_between_RT_imageletter_GM = input_between_RT_imageletter %>%
+  group_by(block_type, experiment) %>%
+  summarise(
+    RT = mean(RT))
+kable(input_between_RT_imageletter_GM, caption = "ExeRT on image-and-letter trials depending on conditions and experiments", digits = 2) 
+
+
+input_between_RT_imageletter_GM_con = input_between_RT_imageletter %>%
+  group_by(block_type) %>%
+  summarise(
+    RT = mean(RT))
+kable(input_between_RT_imageletter_GM_con, caption = "ExeRT on image-and-letter trials depending on conditions", digits = 2) 
+
+
+input_between_RT_imageletter_GM_exp = input_between_RT_imageletter %>%
+  group_by(experiment) %>%
+  summarise(
+    RT = mean(RT))
+kable(input_between_RT_imageletter_GM_exp, caption = "ExeRT on image-and-letter trials depending on experiments", digits = 2) 
+
+
+# ANOVA exeRT
+input_between_RT_imageletter$id = as.factor(input_between_RT_imageletter$id)
+input_between_RT_imageletter$block_type = as.factor(input_between_RT_imageletter$block_type)
+input_between_RT_imageletter$experiment = as.factor(input_between_RT_imageletter$experiment)
+
+stats_RT_imageletter = aov_ez("id", "RT", input_between_RT_imageletter, within = "block_type", between = "experiment",  
+                                  anova_table =list(correction = "none", es = "pes")) 
+kable(nice(stats_RT_imageletter), caption = "ExeRT on image-and-letter trials compared between conditions and experiments", digits = 2) 
+
+
+# t-test main effect block_type 
+source("pairwise_comparisons.R")
+input_between_RT_imageletter_wide = input_between_RT_imageletter %>%
+  dcast(id ~ block_type, value.var = "RT")
+
+input_between_RT_imageletter_wide_pw = TES(input_between_RT_imageletter_wide$`25%`, input_between_RT_imageletter_wide$`75%`, paired=TRUE) 
+
+row.names(input_between_RT_imageletter_wide_pw) = c('RT')
+kable(input_between_RT_imageletter_wide_pw, caption = "RT on image-and-letter trials compared between conditions", digits = 2)
+
+
+# t-test main effect experiment
+input_between_RT_imageletter_old = input_between_RT_imageletter %>%
+  filter(experiment == "2") %>%
+  group_by(id) %>%
+  summarise(RT = mean(RT)) %>%
+  mutate(old_task = RT)
+
+input_between_RT_imageletter_new = input_between_RT_imageletter %>%
+  filter(experiment == "3") %>%
+  group_by(id) %>%
+  summarise(RT = mean(RT)) %>%
+  mutate(new_task = RT)
+
+input_between_RT_imageletter_old$new_task = input_between_RT_imageletter_new$new_task
+
+input_between_RT_imageletter_old_pw = TES(input_between_RT_imageletter_old$new_task, input_between_RT_imageletter_old$old_task, paired=FALSE) 
+row.names(input_between_RT_imageletter_old_pw) = c('RT')
+kable(input_between_RT_imageletter_old_pw, caption = "RT on image-and-letter trials compared between experiments", digits = 2)
+
+
+# t-test interaction
+input_between_RT_imageletter_wide2 = input_between_RT_imageletter_wide %>%
+  mutate(diff_RT = input_between_RT_imageletter_wide$`75%` - input_between_RT_imageletter_wide$`25%`) %>%
+  mutate(mean_RT = ((input_between_RT_imageletter_wide$`75%` + input_between_RT_imageletter_wide$`25%`)/2)) %>%
+  mutate(experiment = ifelse(grepl("CIA_Preparation_Exp2_", id),  "2", "3"))
+# save as csv for JASP
+#write.csv(input_between_RT_imageletter_wide2,'ComparisonExp2Exp3_RT_imageletter.csv')
+
+RT_imageletter_same_SRmapping = input_between_RT_imageletter_wide2 %>%
+  filter(experiment == "2") %>%
+  mutate(same_mapping = diff_RT)
+
+RT_imageletter_new_SRmapping = input_between_RT_imageletter_wide2 %>%
+  filter(experiment == "3") %>%
+  mutate(new_mapping = diff_RT)
+
+RT_imageletter_same_SRmapping$new_mapping = RT_imageletter_new_SRmapping$new_mapping
+
+RT_imageletter_same_SRmapping_pw = TES(RT_imageletter_same_SRmapping$same_mapping, RT_imageletter_same_SRmapping$new_mapping, paired=FALSE) 
+row.names(RT_imageletter_same_SRmapping_pw) = c('RT')
+kable(RT_imageletter_same_SRmapping_pw, caption = "RT differences on image-and-letter trials compared between experiments", digits = 2)
+
+```
+
+
+### Plots for paper (see JASP for the analysis)
+```{r plots paper, warning=FALSE, message=FALSE, echo=FALSE}
+# plot Experiment 2 (in paper, it is called Experiment 3)
+# prepRT
+prepRT2 = input_Exp2 %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant, block_type) %>%
+  summarise(prepRT = mean(prepRT)) 
+
+
+prepRT2_forplot = prepRT2 %>%
+  group_by(block_type) %>%
+  summarise(mean.prepRT = mean(prepRT, na.rm = TRUE),
+            sd.prepRT = sd(prepRT, na.rm = TRUE),
+            n.prepRT = n()) %>%
+  mutate(se.prepRT = sd.prepRT / sqrt(n.prepRT),
+         lower.ci.prepRT = mean.prepRT - qt(1 - (0.05 / 2), n.prepRT - 1) * se.prepRT,
+         upper.ci.prepRT = mean.prepRT + qt(1 - (0.05 / 2), n.prepRT - 1) * se.prepRT)
+
+
+level_order_prepRT = c("75%", "25%")
+
+# plot 
+plot_prepRT2_p = ggplot(prepRT2_forplot, aes(x=factor(block_type, level = level_order_prepRT), y=mean.prepRT, group=1)) +
+  geom_errorbar(aes(ymin=lower.ci.prepRT, ymax=upper.ci.prepRT), width=.1, color="black", position="dodge") +
+  geom_line(color="black", width=2) +
+  geom_point(color="black", position="dodge", shape=17) +
+  
+  scale_y_continuous(breaks = c(1000,2000,3000,4000,5000,6000), limits = c(1000,6000)) +
+  
+  xlab("Image-alone Condition") +
+  ylab("Preparation RT (ms)") + 
+  
+  ggtitle("Experiment 3", subtitle = "Preparation phase") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5)) + 
+    
+  theme(text = element_text(face = "plain", size = 8)) +
+  theme(axis.text.y = element_text(size = 8, color = "black")) +
+  theme(axis.text.x = element_text(size = 8, color = "black", angle = 0, hjust = 0.5)) +
+  theme(axis.title.x = element_text(face = "plain", size = 8)) +
+  theme(axis.title.x = element_text(margin = margin(t = 4, r = 0, b = 0, l = 00))) +
+  theme(axis.title.y = element_text(face = "plain", size = 8)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 4, b = 0, l = 0))) +
+  theme(axis.ticks = element_line(size = 1)) +
+  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black"))
+  
+#plot_prepRT2_p
+
+
+# ACC
+ACC2 = input_Exp2 %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant, block_type, letter_block) %>%
+  summarise(ACC = mean(acc))
+
+ACC2_forplot = ACC2 %>%
+  group_by(block_type, letter_block) %>%
+  summarise(mean.ACC = mean(ACC, na.rm = TRUE),
+            sd.ACC = sd(ACC, na.rm = TRUE),
+            n.ACC = n()) %>%
+  mutate(se.ACC = sd.ACC / sqrt(n.ACC),
+         lower.ci.ACC = mean.ACC - qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC,
+         upper.ci.ACC = mean.ACC + qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC)
+
+
+level_order_ACC = c("75%", "25%")
+
+# plot 
+plot_ACC2_p = ggplot(ACC2_forplot, aes(x=factor(block_type, level = level_order_ACC), y=mean.ACC, group=letter_block)) +
+  geom_errorbar(aes(ymin=lower.ci.ACC, ymax=upper.ci.ACC), width=.1, color=c("black","grey50","black","grey50")) +
+  geom_line(aes(color=c("image-alone trials","image-and-letter trials","image-alone trials","image-and-letter trials")), width=2) +
+  geom_point(aes(color=c("image-alone trials","image-and-letter trials","image-alone trials","image-and-letter trials")), shape=c(16,15,16,15)) +
+  
+  scale_colour_manual(values=c("black","grey50","black","grey50")) +
+  
+  scale_y_continuous(breaks = c(0.6,0.7,0.8,0.9,1.0), limits = c(0.6,1)) +
+  
+  xlab("Image-alone Condition") +
+  ylab("Accuracy") + 
+  
+  ggtitle("Experiment 3", subtitle = "Execution phase") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5)) + 
+    
+  theme(text = element_text(face = "plain", size = 8)) +
+  theme(axis.text.y = element_text(size = 8, color = "black")) +
+  theme(axis.text.x = element_text(size = 8, color = "black", angle = 0, hjust = 0.5)) +
+  theme(axis.title.x = element_text(face = "plain", size = 8)) +
+  theme(axis.title.x = element_text(margin = margin(t = 4, r = 0, b = 0, l = 00))) +
+  theme(axis.title.y = element_text(face = "plain", size = 8)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 4, b = 0, l = 0))) +
+  theme(axis.ticks = element_line(size = 1)) +
+  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  
+  theme(legend.title = element_blank(),
+        legend.text = element_text(size=8),
+        legend.key = element_rect(fill = "white")) +
+  theme(legend.background = element_rect()) + 
+  theme(legend.justification=c(1,0), legend.position=c(0.92,0.02)) +
+  
+  guides(colour = guide_legend(override.aes = list(shape=c(16,15))))
+
+#plot_ACC2_p
+
+
+# ExeRT
+RT2 = input_Exp2 %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(correct == "true") %>%
+  group_by(participant, block_type, letter_block) %>%
+  summarise(RT = mean(rt))
+
+RT2_forplot = RT2 %>%
+  group_by(block_type, letter_block) %>%
+  summarise(mean.RT = mean(RT, na.rm = TRUE),
+            sd.RT = sd(RT, na.rm = TRUE),
+            n.RT = n()) %>%
+  mutate(se.RT = sd.RT / sqrt(n.RT),
+         lower.ci.RT = mean.RT - qt(1 - (0.05 / 2), n.RT - 1) * se.RT,
+         upper.ci.RT = mean.RT + qt(1 - (0.05 / 2), n.RT - 1) * se.RT)
+
+
+level_order_RT = c("75%", "25%")
+
+# plot 
+plot_RT2_p = ggplot(RT2_forplot, aes(x=factor(block_type, level = level_order_RT), y=mean.RT, group=letter_block)) +
+  geom_errorbar(aes(ymin=lower.ci.RT, ymax=upper.ci.RT), width=.1, color=c("black","grey50","black","grey50")) +
+  geom_line(aes(color=c("image-alone trials","image-and-letter trials","image-alone trials","image-and-letter trials")), width=2) +
+  geom_point(aes(color=c("image-alone trials","image-and-letter trials","image-alone trials","image-and-letter trials")), shape=c(16,15,16,15)) +
+  
+  scale_colour_manual(values=c("black","grey50","black","grey50")) +
+  
+  scale_y_continuous(breaks = c(200,400,600,800,1000,1200), limits = c(0,1200)) +
+  
+  xlab("Image-alone Condition") +
+  ylab("Execution RT (ms)") + 
+  
+  ggtitle("Experiment 3", subtitle = "Execution phase") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5)) + 
+    
+  theme(text = element_text(face = "plain", size = 8)) +
+  theme(axis.text.y = element_text(size = 8, color = "black")) +
+  theme(axis.text.x = element_text(size = 8, color = "black", angle = 0, hjust = 0.5)) +
+  theme(axis.title.x = element_text(face = "plain", size = 8)) +
+  theme(axis.title.x = element_text(margin = margin(t = 4, r = 0, b = 0, l = 00))) +
+  theme(axis.title.y = element_text(face = "plain", size = 8)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 4, b = 0, l = 0))) +
+  theme(axis.ticks = element_line(size = 1)) +
+  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  
+  theme(legend.title = element_blank(),
+        legend.text = element_text(size=8),
+        legend.key = element_rect(fill = "white")) +
+  theme(legend.background = element_rect()) + 
+  theme(legend.justification=c(1,0), legend.position=c(0.92,0.02)) +
+  
+  guides(colour = guide_legend(override.aes = list(shape=c(16,15))))
+
+#plot_RT2_p
+
+
+# combine all plots
+bigplot_PrepRTACCExeRT3 <- plot_grid(plot_prepRT2_p, plot_ACC2_p, plot_RT2_p,
+ ncol = 3,
+ rel_heights = c(1,1,1),
+ rel_widths = c(1,1,1),
+ labels = c("A","B","C"),
+ label_size = 12,
+ align = "v"
+)
+bigplot_PrepRTACCExeRT3
+
+#ggsave("Experiment3_PrepRTACCExeRT.png", width = 14, height = 6, units = "cm")
+
+
+#######
+# plot Experiment 3 (in paper, it is called Experiment 4)
+# prepRT
+prepRT3 = input_Exp3 %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant, block_type) %>%
+  summarise(prepRT = mean(prepRT)) 
+
+
+prepRT3_forplot = prepRT3 %>%
+  group_by(block_type) %>%
+  summarise(mean.prepRT = mean(prepRT, na.rm = TRUE),
+            sd.prepRT = sd(prepRT, na.rm = TRUE),
+            n.prepRT = n()) %>%
+  mutate(se.prepRT = sd.prepRT / sqrt(n.prepRT),
+         lower.ci.prepRT = mean.prepRT - qt(1 - (0.05 / 2), n.prepRT - 1) * se.prepRT,
+         upper.ci.prepRT = mean.prepRT + qt(1 - (0.05 / 2), n.prepRT - 1) * se.prepRT)
+
+
+level_order_prepRT = c("75%", "25%")
+
+# plot 
+plot_prepRT3_p = ggplot(prepRT3_forplot, aes(x=factor(block_type, level = level_order_prepRT), y=mean.prepRT, group=1)) +
+  geom_errorbar(aes(ymin=lower.ci.prepRT, ymax=upper.ci.prepRT), width=.1, color="black", position="dodge") +
+  geom_line(color="black", width=2) +
+  geom_point(color="black", position="dodge", shape=17) +
+  
+  scale_y_continuous(breaks = c(1000,2000,3000,4000,5000,6000), limits = c(1000,6000)) +
+  
+  xlab("Image-alone Condition") +
+  ylab("Preparation RT (ms)") + 
+  
+  ggtitle("Experiment 4", subtitle = "Preparation phase") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5)) + 
+    
+  theme(text = element_text(face = "plain", size = 8)) +
+  theme(axis.text.y = element_text(size = 8, color = "black")) +
+  theme(axis.text.x = element_text(size = 8, color = "black", angle = 0, hjust = 0.5)) +
+  theme(axis.title.x = element_text(face = "plain", size = 8)) +
+  theme(axis.title.x = element_text(margin = margin(t = 4, r = 0, b = 0, l = 00))) +
+  theme(axis.title.y = element_text(face = "plain", size = 8)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 4, b = 0, l = 0))) +
+  theme(axis.ticks = element_line(size = 1)) +
+  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black"))
+  
+#plot_prepRT3_p
+
+
+# ACC
+ACC3 = input_Exp3 %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  group_by(participant, block_type, letter_block) %>%
+  summarise(ACC = mean(acc))
+
+ACC3_forplot = ACC3 %>%
+  group_by(block_type, letter_block) %>%
+  summarise(mean.ACC = mean(ACC, na.rm = TRUE),
+            sd.ACC = sd(ACC, na.rm = TRUE),
+            n.ACC = n()) %>%
+  mutate(se.ACC = sd.ACC / sqrt(n.ACC),
+         lower.ci.ACC = mean.ACC - qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC,
+         upper.ci.ACC = mean.ACC + qt(1 - (0.05 / 2), n.ACC - 1) * se.ACC)
+
+
+level_order_ACC = c("75%", "25%")
+
+# plot 
+plot_ACC3_p = ggplot(ACC3_forplot, aes(x=factor(block_type, level = level_order_ACC), y=mean.ACC, group=letter_block)) +
+  geom_errorbar(aes(ymin=lower.ci.ACC, ymax=upper.ci.ACC), width=.1, color=c("black","grey50","black","grey50")) +
+  geom_line(aes(color=c("image-alone trials","image-and-letter trials","image-alone trials","image-and-letter trials")), width=2) +
+  geom_point(aes(color=c("image-alone trials","image-and-letter trials","image-alone trials","image-and-letter trials")), shape=c(16,15,16,15)) +
+  
+  scale_colour_manual(values=c("black","grey50","black","grey50")) +
+  
+  scale_y_continuous(breaks = c(0.6,0.7,0.8,0.9,1.0), limits = c(0.6,1)) +
+  
+  xlab("Image-alone Condition") +
+  ylab("Accuracy") + 
+  
+  ggtitle("Experiment 4", subtitle = "Execution phase") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5)) + 
+    
+  theme(text = element_text(face = "plain", size = 8)) +
+  theme(axis.text.y = element_text(size = 8, color = "black")) +
+  theme(axis.text.x = element_text(size = 8, color = "black", angle = 0, hjust = 0.5)) +
+  theme(axis.title.x = element_text(face = "plain", size = 8)) +
+  theme(axis.title.x = element_text(margin = margin(t = 4, r = 0, b = 0, l = 00))) +
+  theme(axis.title.y = element_text(face = "plain", size = 8)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 4, b = 0, l = 0))) +
+  theme(axis.ticks = element_line(size = 1)) +
+  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  
+  theme(legend.title = element_blank(),
+        legend.text = element_text(size=8),
+        legend.key = element_rect(fill = "white")) +
+  theme(legend.background = element_rect()) + 
+  theme(legend.justification=c(1,0), legend.position=c(0.92,0.02)) +
+  
+  guides(colour = guide_legend(override.aes = list(shape=c(16,15))))
+
+#plot_ACC3_p
+
+
+# ExeRT
+RT3 = input_Exp3 %>%
+  filter(prepRT > 100) %>%
+  filter(prepRT < 20000) %>%
+  filter(rt > 100) %>% 
+  filter(rt < 3000) %>%
+  filter(correct == "true") %>%
+  group_by(participant, block_type, letter_block) %>%
+  summarise(RT = mean(rt))
+
+RT3_forplot = RT3 %>%
+  group_by(block_type, letter_block) %>%
+  summarise(mean.RT = mean(RT, na.rm = TRUE),
+            sd.RT = sd(RT, na.rm = TRUE),
+            n.RT = n()) %>%
+  mutate(se.RT = sd.RT / sqrt(n.RT),
+         lower.ci.RT = mean.RT - qt(1 - (0.05 / 2), n.RT - 1) * se.RT,
+         upper.ci.RT = mean.RT + qt(1 - (0.05 / 2), n.RT - 1) * se.RT)
+
+
+level_order_RT = c("75%", "25%")
+
+# plot 
+plot_RT3_p = ggplot(RT3_forplot, aes(x=factor(block_type, level = level_order_RT), y=mean.RT, group=letter_block)) +
+  geom_errorbar(aes(ymin=lower.ci.RT, ymax=upper.ci.RT), width=.1, color=c("black","grey50","black","grey50")) +
+  geom_line(aes(color=c("image-alone trials","image-and-letter trials","image-alone trials","image-and-letter trials")), width=2) +
+  geom_point(aes(color=c("image-alone trials","image-and-letter trials","image-alone trials","image-and-letter trials")), shape=c(16,15,16,15)) +
+  
+  scale_colour_manual(values=c("black","grey50","black","grey50")) +
+  
+  scale_y_continuous(breaks = c(200,400,600,800,1000,1200), limits = c(0,1200)) +
+  
+  xlab("Image-alone Condition") +
+  ylab("Execution RT (ms)") + 
+  
+  ggtitle("Experiment 4", subtitle = "Execution phase") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(plot.subtitle = element_text(hjust = 0.5)) + 
+    
+  theme(text = element_text(face = "plain", size = 8)) +
+  theme(axis.text.y = element_text(size = 8, color = "black")) +
+  theme(axis.text.x = element_text(size = 8, color = "black", angle = 0, hjust = 0.5)) +
+  theme(axis.title.x = element_text(face = "plain", size = 8)) +
+  theme(axis.title.x = element_text(margin = margin(t = 4, r = 0, b = 0, l = 00))) +
+  theme(axis.title.y = element_text(face = "plain", size = 8)) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 4, b = 0, l = 0))) +
+  theme(axis.ticks = element_line(size = 1)) +
+  
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  
+  theme(legend.title = element_blank(),
+        legend.text = element_text(size=8),
+        legend.key = element_rect(fill = "white")) +
+  theme(legend.background = element_rect()) + 
+  theme(legend.justification=c(1,0), legend.position=c(0.92,0.02)) +
+  
+  guides(colour = guide_legend(override.aes = list(shape=c(16,15))))
+
+#plot_RT3_p
+
+
+# combine all plots
+bigplot_PrepRTACCExeRT4 <- plot_grid(plot_prepRT3_p, plot_ACC3_p, plot_RT3_p,
+ ncol = 3,
+ rel_heights = c(1,1,1),
+ rel_widths = c(1,1,1),
+ labels = c("D","E","F"),
+ label_size = 12,
+ align = "v"
+)
+bigplot_PrepRTACCExeRT4
+
+#ggsave("Experiment4_PrepRTACCExeRT.png", width = 14, height = 6, units = "cm")
+
+
+# combine both big plots
+bigplot_34 <- plot_grid(bigplot_PrepRTACCExeRT3, bigplot_PrepRTACCExeRT4,
+ #ncol = 1,
+ nrow = 2,
+ rel_heights = c(1,1),
+ rel_widths = c(1,1),
+ #labels = c("a","b","c"),
+ label_size = 12,
+ align = "v"
+)
+bigplot_34
+
+ggsave("Experiments34_PrepRTACCExeRT.png", width = 20, height = 18, units = "cm")
+```
